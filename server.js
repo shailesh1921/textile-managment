@@ -30,6 +30,33 @@ pool.connect((err, client, release) => {
   }
 });
 
+// Temporary database debug endpoint
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const dbUrlExists = !!process.env.DATABASE_URL;
+    let dbHost = 'N/A';
+    if (dbUrlExists) {
+      const match = process.env.DATABASE_URL.match(/@([^/]+)/);
+      dbHost = match ? match[1] : 'Unknown';
+    }
+    
+    const result = await pool.query('SELECT 1 as connection_test');
+    res.json({
+      success: true,
+      database_url_configured: dbUrlExists,
+      database_host: dbHost,
+      query_test: result.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      stack: err.stack,
+      database_url_configured: !!process.env.DATABASE_URL
+    });
+  }
+});
+
 // Helper for JWT authentication middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];

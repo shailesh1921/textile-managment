@@ -21,6 +21,16 @@ async function run() {
     console.log('Connected successfully!');
 
     // Create DDL schema
+    console.log('Wiping legacy mismatching database tables...');
+    await client.query(`
+      DROP TABLE IF EXISTS 
+        communication_logs, dispatch_notes, batch_approvals, defect_logs, qc_inspections, 
+        production_logs, machine_allocations, work_orders, so_items, sales_orders, 
+        customers, machines, bom, products, reorder_alerts, stock_movements, 
+        inventory_items, supplier_ratings, po_items, purchase_orders, materials, 
+        suppliers, audit_logs, users, roles, orders
+      CASCADE;
+    `);
     console.log('Initializing schema tables...');
 
     // 1. Roles
