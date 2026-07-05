@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../lib/api';
-import { Button, Input, Select } from '../components/ui';
+import { Button, Input, Select, Badge } from '../components/ui';
 import { Lock, User, Mail, Building, Shield, ChevronRight } from 'lucide-react';
 
 export default function Login({ onLoginSuccess }) {
