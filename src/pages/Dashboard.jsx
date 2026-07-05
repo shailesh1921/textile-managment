@@ -201,21 +201,39 @@ export default function Dashboard() {
       <Card title="Live WhatsApp Gateway Logs">
         <div className="flex flex-col gap-4 mt-2">
           {/* Status banner */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="relative flex h-3.5 w-3.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
               </span>
               <div className="flex flex-col">
-                <span className="text-sm font-bold text-slate-700">Twilio API Gateway Active</span>
+                <span className="text-sm font-bold text-slate-700">Twilio API Gateway Live Feed</span>
                 <span className="text-xs text-slate-400">Serving automatic notifications directly to Surat fabric traders</span>
               </div>
             </div>
-            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
-              {process.env.TWILLIO_ACCOUNT_SID ? 'PRODUCTION MODE' : 'SIMULATION MODE ACTIVE'}
+            <div className="flex items-center gap-4 text-xs font-semibold">
+              <div className="flex flex-col items-end">
+                <span className="text-slate-400 font-bold uppercase tracking-wider">Gateway Status</span>
+                <span className="text-emerald-600 font-bold">{metrics?.whatsapp_gateway_mode || 'SIMULATION MODE ACTIVE'}</span>
+              </div>
+              <div className="h-8 w-px bg-slate-200"></div>
+              <div className="flex flex-col items-end">
+                <span className="text-slate-400 font-bold uppercase tracking-wider">Total Dispatches</span>
+                <span className="text-slate-800 font-bold">{commLogs.length} Alerts Sent</span>
+              </div>
             </div>
           </div>
+
+          {/* Interactive alert telemetry */}
+          {commLogs.length > 0 && (
+            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-xs flex justify-between items-center text-emerald-800">
+              <span><strong>Latest Output Telemetry:</strong> "{commLogs[0].message}"</span>
+              <span className="font-mono bg-white px-2 py-0.5 rounded border border-emerald-200 text-xs shrink-0 ml-4">
+                Recipient: {commLogs[0].recipient.replace('whatsapp:', '')}
+              </span>
+            </div>
+          )}
 
           {/* Logs feed table */}
           <div className="border border-slate-200 rounded-lg overflow-hidden">

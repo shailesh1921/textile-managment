@@ -8,10 +8,12 @@ export default function Sales() {
   const [customers, setCustomers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
+  const [dispatches, setDispatches] = useState([]);
 
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isViewOrderModalOpen, setIsViewOrderModalOpen] = useState(false);
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   // Form states
@@ -24,6 +26,10 @@ export default function Sales() {
   });
   const [orderItems, setOrderItems] = useState([{ product_id: '', quantity: 1, unit_price: 0 }]);
 
+  const [dispatchForm, setDispatchForm] = useState({
+    so_id: '', vehicle_number: '', driver_name: '', driver_phone: '', transporter: '', tracking_number: '', expected_delivery_date: '', notes: ''
+  });
+
   const fetchData = async () => {
     try {
       const custs = await api.get('/api/sales/customers');
@@ -32,6 +38,8 @@ export default function Sales() {
       setOrders(ords || []);
       const prods = await api.get('/api/production/products');
       setProducts(prods || []);
+      const dns = await api.get('/api/sales/dispatch-notes').catch(() => []);
+      setDispatches(dns || []);
     } catch (err) {
       console.error('Error fetching sales data:', err.message);
     }
@@ -67,7 +75,6 @@ export default function Sales() {
     const updated = [...orderItems];
     updated[index][field] = value;
     
-    // Auto populate unit price if product is selected
     if (field === 'product_id') {
       const selectedProd = products.find(p => String(p.product_id) === String(value));
       if (selectedProd) {
@@ -106,24 +113,25 @@ export default function Sales() {
     }
   };
 
+  const handleCreateDispatch = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/sales/dispatch-notes', dispatchForm);
+      setIsDispatchModalOpen(false);
+      setDispatchForm({
+        so_id: '', vehicle_number: '', driver_name: '', driver_phone: '', transporter: '', tracking_number: '', expected_delivery_date: '', notes: ''
+      });
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleViewOrder = async (orderId) => {
     try {
-      const ords = await api.get('/api/sales/sales-orders');
-      const target = ords.find(o => o.so_id === orderId);
-      
-      // Fetch details items - since we need the items, we can write an items query or call backend
-      // But we can also simulate fetching items by calling backend products mapping or direct list
-      // Let's query products mapping
-      const result = await api.get('/api/production/products');
-      // For items list we can fetch from mock or write a simple route.
-      // Wait, let's look at `server.js`:
-      // `/api/sales/sales-orders` returns the order list.
-      // Let's create an endpoint in `server.js` later or query order items:
-      // In `server.js` we didn't specify `GET /api/sales/sales-orders/:id`, but we can add it or mock it.
-      // Wait! Let's update `server.js` to support `GET /api/sales/sales-orders/:id` which is very clean!
-      // But first, let's fetch details.
-      const details = await api.request('GET', `/api/sales/sales-orders/${orderId}`).catch(async () => {
-        // Fallback: fetch products and map items
+      const details = await api.get(`/api/sales/sales-orders/${orderId}`).catch(async () => {
+        const ords = await api.get('/api/sales/sales-orders');
+        const target = ords.find(o => o.so_id === orderId);
         return {
           ...target,
           items: [
@@ -149,7 +157,6 @@ export default function Sales() {
   };
 
   const handleSendPaymentReminder = async (so) => {
-    // Late payment interest calculation: 1% for every 15 days past due
     const daysOverdue = Math.max(0, Math.floor((new Date() - new Date(so.order_date)) / (1000 * 60 * 60 * 24)) - 30);
     const intervals = Math.floor(daysOverdue / 15);
     const interestRate = intervals * 0.01;
@@ -165,8 +172,7 @@ export default function Sales() {
         message: message,
         so_id: so.so_id
       }).catch(async () => {
-        // Fallback: call communication logs post direct
-        await api.post(`/api/sales/sales-orders/${so.so_id}/status`, { status: so.status }); // fake transaction to trigger log
+        await api.post(`/api/sales/sales-orders/${so.so_id}/status`, { status: so.status });
       });
       alert('WhatsApp Payment Reminder successfully sent to customer!');
       fetchData();
@@ -188,6 +194,14 @@ export default function Sales() {
           Sales Orders Registry
         </button>
         <button
+          onClick={() => setSalesTab('dispatches')}
+          className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all ${
+            salesTab === 'dispatches' ? 'border-emerald-600 text-emerald-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Delivery Challan & Dispatches
+        </button>
+        <button
           onClick={() => setSalesTab('customers')}
           className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all ${
             salesTab === 'customers' ? 'border-emerald-600 text-emerald-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -197,7 +211,7 @@ export default function Sales() {
         </button>
       </div>
 
-      {salesTab === 'orders' ? (
+      {salesTab === 'orders' && (
         <Card 
           title="Sales Orders Log"
           headerActions={
@@ -248,7 +262,48 @@ export default function Sales() {
             </Table>
           </div>
         </Card>
-      ) : (
+      )}
+
+      {salesTab === 'dispatches' && (
+        <Card 
+          title="Dispatch Logs & Delivery Challans"
+          headerActions={
+            <Button onClick={() => setIsDispatchModalOpen(true)} className="flex items-center gap-1.5 bg-emerald-600">
+              <Plus size={16} /> Log Shipment / Dispatch
+            </Button>
+          }
+        >
+          <div className="mt-4">
+            <Table headers={['Challan No.', 'SO Number', 'Customer / Trader', 'Dispatch Date', 'Vehicle Number', 'Driver Name', 'Carrier Transporter', 'Tracking No.', 'Delivery Status']}>
+              {dispatches.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="px-6 py-10 text-center text-slate-400">
+                    No shipments dispatched yet. Click 'Log Shipment' to ship finished fabric batches.
+                  </td>
+                </tr>
+              ) : (
+                dispatches.map((dn) => (
+                  <tr key={dn.dispatch_id} className="hover:bg-slate-50 text-xs">
+                    <td className="px-6 py-4 font-mono font-bold text-emerald-700">{dn.dispatch_number}</td>
+                    <td className="px-6 py-4 font-bold text-slate-800">{dn.so_number}</td>
+                    <td className="px-6 py-4 font-semibold text-slate-700">{dn.customer_name}</td>
+                    <td className="px-6 py-4 text-slate-500">{new Date(dn.dispatch_date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 font-mono font-bold text-slate-600">{dn.vehicle_number || 'N/A'}</td>
+                    <td className="px-6 py-4 text-slate-600">{dn.driver_name || 'N/A'} ({dn.driver_phone || 'N/A'})</td>
+                    <td className="px-6 py-4 font-semibold text-slate-600">{dn.transporter || 'N/A'}</td>
+                    <td className="px-6 py-4 font-mono text-slate-500">{dn.tracking_number || 'N/A'}</td>
+                    <td className="px-6 py-4">
+                      <Badge status={dn.delivery_status}>{dn.delivery_status}</Badge>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </Table>
+          </div>
+        </Card>
+      )}
+
+      {salesTab === 'customers' && (
         <Card 
           title="Customer & Surat Trading Partners"
           headerActions={
@@ -497,6 +552,42 @@ export default function Sales() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Log Dispatch Modal */}
+      <Modal isOpen={isDispatchModalOpen} onClose={() => setIsDispatchModalOpen(false)} title="Create Delivery Challan & Dispatch">
+        <form onSubmit={handleCreateDispatch} className="flex flex-col gap-4 text-xs">
+          <Select
+            label="Select Sales Order (Ready for Dispatch)"
+            value={dispatchForm.so_id}
+            onChange={(e) => setDispatchForm({...dispatchForm, so_id: e.target.value})}
+            options={[
+              { value: '', label: '-- Select Ready Order --' },
+              ...orders.filter(o => o.status === 'ready_to_dispatch').map(o => ({
+                value: o.so_id,
+                label: `${o.so_number} - ${o.customer_name} (₹${parseFloat(o.net_amount).toLocaleString('en-IN')})`
+              }))
+            ]}
+            required
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Vehicle Number" placeholder="e.g. GJ-19-XX-9900" value={dispatchForm.vehicle_number} onChange={(e) => setDispatchForm({...dispatchForm, vehicle_number: e.target.value})} required />
+            <Input label="Transporter / Carrier" placeholder="e.g. Surat Goods Transport" value={dispatchForm.transporter} onChange={(e) => setDispatchForm({...dispatchForm, transporter: e.target.value})} required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Driver Name" placeholder="e.g. Rajesh Kumar" value={dispatchForm.driver_name} onChange={(e) => setDispatchForm({...dispatchForm, driver_name: e.target.value})} />
+            <Input label="Driver Phone" placeholder="e.g. +91 99999 88888" value={dispatchForm.driver_phone} onChange={(e) => setDispatchForm({...dispatchForm, driver_phone: e.target.value})} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Tracking Number" placeholder="e.g. TRK78923489" value={dispatchForm.tracking_number} onChange={(e) => setDispatchForm({...dispatchForm, tracking_number: e.target.value})} />
+            <Input label="Expected Delivery Date" type="date" value={dispatchForm.expected_delivery_date} onChange={(e) => setDispatchForm({...dispatchForm, expected_delivery_date: e.target.value})} />
+          </div>
+          <Input label="Shipping Notes" placeholder="Special delivery instructions, gate pass entry requirements..." value={dispatchForm.notes} onChange={(e) => setDispatchForm({...dispatchForm, notes: e.target.value})} />
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button variant="secondary" onClick={() => setIsDispatchModalOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Confirm & Dispatch</Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

@@ -636,6 +636,38 @@ app.post('/api/quality/inspections/:id/approve', authenticateToken, async (req, 
       [status === 'approved' ? 'passed' : 'failed', req.user.user_id, req.params.id]
     );
 
+    // If approved, update corresponding sales order to 'ready_to_dispatch'
+    if (status === 'approved') {
+      const soLookup = await pool.query(
+        `SELECT wo.sales_order_id, wo.wo_number 
+         FROM work_orders wo
+         JOIN qc_inspections qc ON qc.wo_id = wo.wo_id
+         WHERE qc.inspection_id = $1`,
+        [req.params.id]
+      );
+      if (soLookup.rows.length > 0 && soLookup.rows[0].sales_order_id) {
+        const soId = soLookup.rows[0].sales_order_id;
+        await pool.query(
+          `UPDATE sales_orders SET status = 'ready_to_dispatch', updated_at = NOW() WHERE so_id = $1`,
+          [soId]
+        );
+        
+        // Trigger a WhatsApp alert that fabric has passed quality check and is ready for dispatch
+        const soRes = await pool.query(
+          `SELECT so.*, c.name as customer_name, c.phone, c.customer_id
+           FROM sales_orders so
+           JOIN customers c ON so.customer_id = c.customer_id
+           WHERE so.so_id = $1`,
+          [soId]
+        );
+        if (soRes.rows.length > 0) {
+          const so = soRes.rows[0];
+          const alertMsg = `Dear ${so.customer_name}, fabric under Work Order ${soLookup.rows[0].wo_number} has PASSED quality control inspection successfully. Your batch is now marked as READY FOR DISPATCH.`;
+          await sendWhatsAppAlert(so.customer_id, so.so_id, so.phone, alertMsg);
+        }
+      }
+    }
+
     // Create batch approval log
     const inspectRes = await pool.query('SELECT batch_number FROM qc_inspections WHERE inspection_id = $1', [req.params.id]);
     const batchNo = inspectRes.rows[0].batch_number;
@@ -786,6 +818,90 @@ app.post('/api/sales/sales-orders/:id/status', authenticateToken, async (req, re
   }
 });
 
+app.get('/api/sales/sales-orders/:id', authenticateToken, async (req, res) => {
+  const soId = req.params.id;
+  try {
+    const soResult = await pool.query(
+      `SELECT so.*, c.name as customer_name, c.contact_person, c.phone, c.email, c.address, c.city, c.tax_id 
+       FROM sales_orders so 
+       JOIN customers c ON so.customer_id = c.customer_id 
+       WHERE so.so_id = $1`,
+      [soId]
+    );
+    if (soResult.rows.length === 0) return res.status(404).json({ error: 'Sales order not found' });
+    
+    const itemsResult = await pool.query(
+      `SELECT si.*, p.name as product_name, p.product_code, p.unit 
+       FROM so_items si 
+       JOIN products p ON si.product_id = p.product_id 
+       WHERE si.so_id = $1`,
+      [soId]
+    );
+
+    res.json({
+      ...soResult.rows[0],
+      items: itemsResult.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/sales/dispatch-notes', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT dn.*, so.so_number, c.name as customer_name 
+       FROM dispatch_notes dn
+       JOIN sales_orders so ON dn.so_id = so.so_id
+       JOIN customers c ON so.customer_id = c.customer_id
+       ORDER BY dn.dispatch_id DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/sales/dispatch-notes', authenticateToken, async (req, res) => {
+  const { so_id, vehicle_number, driver_name, driver_phone, transporter, tracking_number, expected_delivery_date, notes } = req.body;
+  try {
+    await pool.query('BEGIN');
+    
+    const countResult = await pool.query('SELECT COUNT(*) FROM dispatch_notes');
+    const dnNum = `DN-${new Date().getFullYear()}-${String(parseInt(countResult.rows[0].count) + 1).padStart(4, '0')}`;
+    
+    const result = await pool.query(
+      `INSERT INTO dispatch_notes (dispatch_number, so_id, vehicle_number, driver_name, driver_phone, transporter, tracking_number, expected_delivery_date, notes, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [dnNum, so_id, vehicle_number, driver_name, driver_phone, transporter, tracking_number, expected_delivery_date, notes, req.user.user_id]
+    );
+    
+    const dn = result.rows[0];
+    
+    await pool.query('UPDATE sales_orders SET status = \'dispatched\', updated_at = NOW() WHERE so_id = $1', [so_id]);
+    
+    const soRes = await pool.query(
+      `SELECT so.*, c.name as customer_name, c.phone, c.customer_id 
+       FROM sales_orders so 
+       JOIN customers c ON so.customer_id = c.customer_id 
+       WHERE so.so_id = $1`,
+      [so_id]
+    );
+    
+    if (soRes.rows.length > 0) {
+      const so = soRes.rows[0];
+      const alertMsg = `Dear ${so.customer_name}, your order ${so.so_number} has been DISPATCHED via ${transporter || 'carrier'}. Tracking No: ${tracking_number || 'N/A'}. Vehicle: ${vehicle_number || 'N/A'}. Driver: ${driver_name || 'N/A'} (${driver_phone || 'N/A'}).`;
+      await sendWhatsAppAlert(so.customer_id, so.so_id, so.phone, alertMsg);
+    }
+    
+    await pool.query('COMMIT');
+    res.status(201).json(dn);
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==========================================
 // 7. COMMUNICATIONS GATEWAY LOG FEED
 // ==========================================
@@ -825,7 +941,8 @@ app.get('/api/reports/summary', authenticateToken, async (req, res) => {
       active_work_orders: parseInt(activeWo.rows[0].count),
       active_machines: parseInt(activeMachines.rows[0].count),
       qc_inspections: parseInt(totalQC.rows[0].count),
-      qc_pass_rate: totalQC.rows[0].count > 0 ? (passedQC.rows[0].count / totalQC.rows[0].count * 100).toFixed(1) : 100
+      qc_pass_rate: totalQC.rows[0].count > 0 ? (passedQC.rows[0].count / totalQC.rows[0].count * 100).toFixed(1) : 100,
+      whatsapp_gateway_mode: process.env.TWILIO_ACCOUNT_SID ? 'PRODUCTION MODE' : 'SIMULATION MODE ACTIVE'
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
