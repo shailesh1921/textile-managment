@@ -1,92 +1,277 @@
 import React, { useState } from 'react';
 import { api } from '../lib/api';
-import { Button, Input } from '../components/ui';
-import { Lock, User } from 'lucide-react';
+import { Button, Input, Select } from '../components/ui';
+import { Lock, User, Mail, Building, Shield, ChevronRight } from 'lucide-react';
 
 export default function Login({ onLoginSuccess }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  // Sign In Form State
+  const [signInForm, setSignInForm] = useState({
+    username: '',
+    password: ''
+  });
+
+  // Sign Up Form State
+  const [signUpForm, setSignUpForm] = useState({
+    username: '',
+    password: '',
+    email: '',
+    full_name: '',
+    mill_name: '',
+    gstin: '',
+    register_type: 'TRADER_PORTAL' // or NEW_MILL
+  });
+
+  const handleSignIn = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const data = await api.post('/api/auth/login', { username, password });
+      const data = await api.post('/api/auth/login', signInForm);
       api.setToken(data.access_token);
       api.setUser(data.user);
       onLoginSuccess(data.user);
     } catch (err) {
-      setError(err.message || 'Invalid username or password');
+      setError(err.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      await api.post('/api/auth/register', signUpForm);
+      setSuccess('Account created successfully! Please sign in using your credentials.');
+      setIsSignUp(false);
+      setSignInForm({ username: signUpForm.username, password: signUpForm.password });
+    } catch (err) {
+      setError(err.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
-        {/* Banner with theme gradient */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-8 text-center text-white">
-          <div className="mx-auto w-12 h-12 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center mb-3">
-            <Lock className="text-white" size={24} />
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-[#09060f] text-slate-100 overflow-hidden font-sans relative">
+      
+      {/* Background Subtle Grain & Ambient Glows */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,94,54,0.15),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(158,42,43,0.1),transparent_50%)] pointer-events-none z-0" />
+
+      {/* Left Panel: Cinematic 3D Sunset Scene */}
+      <div 
+        className="lg:col-span-7 relative hidden lg:flex flex-col justify-between p-12 overflow-hidden bg-cover bg-center select-none"
+        style={{ backgroundImage: `url('/hero.jpg')` }}
+      >
+        {/* Soft Sunset Color Overlay Gradients to Blend Image */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#09060f] via-transparent to-black/30 mix-blend-multiply z-10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#09060f] z-10" />
+
+        {/* Brand Tag / Logo */}
+        <div className="z-20 flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#ff5e36] to-[#9e2a2b] flex items-center justify-center shadow-lg shadow-[#ff5e36]/30">
+            <span className="font-black text-white text-base">S</span>
           </div>
-          <h2 className="text-2xl font-bold">Sarv Uttam Fabrics</h2>
-          <p className="text-emerald-100 text-xs mt-1 uppercase tracking-widest font-semibold">Enterprise Suite Login</p>
+          <span className="font-bold text-white text-base tracking-wide uppercase">Sarv Uttam Fabrics</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-5">
+        {/* Cozy Scenic Info */}
+        <div className="z-20 max-w-lg mt-auto flex flex-col gap-3">
+          <Badge status="approved">Surat Dyeing Mill Suite</Badge>
+          <h1 className="text-4xl font-extrabold text-white leading-tight tracking-tight drop-shadow-md">
+            Connecting Surat's grey weavers and processing houses.
+          </h1>
+          <p className="text-slate-300 text-sm leading-relaxed drop-shadow">
+            Track lot cards from grey fabric inwarding, spectrophotometer CIELAB color match, recipe chemical dispensing logs, to automatic WhatsApp dispatch alerts.
+          </p>
+        </div>
+      </div>
+
+      {/* Right Panel: Glassmorphism Login / Signup Card */}
+      <div className="lg:col-span-5 flex items-center justify-center p-6 md:p-12 z-20">
+        <div className="w-full max-w-md bg-white/[0.03] border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-8 flex flex-col gap-6 relative overflow-hidden">
+          
+          {/* Card Accent Top Glow */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#ff5e36] to-[#9e2a2b]" />
+
+          {/* Heading */}
+          <div className="text-center">
+            <h2 className="text-2xl font-black text-white">{isSignUp ? 'Join the Mill' : 'Welcome Back'}</h2>
+            <p className="text-slate-400 text-xs mt-1.5">
+              {isSignUp ? 'Create your platform account' : 'Sign in to access Surat ERP operations'}
+            </p>
+          </div>
+
+          {/* Tabs */}
+          <div className="grid grid-cols-2 bg-white/[0.04] p-1.5 rounded-xl border border-white/5">
+            <button 
+              onClick={() => { setIsSignUp(false); setError(''); }}
+              className={`py-2 text-xs font-bold rounded-lg transition-all ${!isSignUp ? 'bg-[#ff5e36] text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+            >
+              Sign In
+            </button>
+            <button 
+              onClick={() => { setIsSignUp(true); setError(''); }}
+              className={`py-2 text-xs font-bold rounded-lg transition-all ${isSignUp ? 'bg-[#ff5e36] text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+            >
+              Create Account
+            </button>
+          </div>
+
           {error && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 rounded-lg font-medium">
+            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs p-3 rounded-lg font-medium animate-shake">
               {error}
             </div>
           )}
 
-          <div className="relative">
-            <User className="absolute left-3 top-[38px] text-slate-400" size={16} />
-            <Input
-              label="Username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username (e.g. admin)"
-              required
-              className="pl-9"
-            />
-          </div>
+          {success && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs p-3 rounded-lg font-medium">
+              {success}
+            </div>
+          )}
 
-          <div className="relative">
-            <Lock className="absolute left-3 top-[38px] text-slate-400" size={16} />
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-              className="pl-9"
-            />
-          </div>
+          {/* Form */}
+          {!isSignUp ? (
+            <form onSubmit={handleSignIn} className="flex flex-col gap-4 text-xs">
+              <div className="relative">
+                <User className="absolute left-3 top-[34px] text-slate-500" size={14} />
+                <Input
+                  label="Username"
+                  type="text"
+                  value={signInForm.username}
+                  onChange={e => setSignInForm({ ...signInForm, username: e.target.value })}
+                  placeholder="e.g. admin"
+                  required
+                  className="pl-9 bg-white/[0.02] border-white/10 text-white focus:border-[#ff5e36] focus:ring-[#ff5e36]"
+                />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-[34px] text-slate-500" size={14} />
+                <Input
+                  label="Password"
+                  type="password"
+                  value={signInForm.password}
+                  onChange={e => setSignInForm({ ...signInForm, password: e.target.value })}
+                  placeholder="••••••••"
+                  required
+                  className="pl-9 bg-white/[0.02] border-white/10 text-white focus:border-[#ff5e36] focus:ring-[#ff5e36]"
+                />
+              </div>
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-md transition-all flex items-center justify-center"
-          >
-            {loading ? 'Authenticating...' : 'Sign In'}
-          </Button>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-2.5 bg-gradient-to-r from-[#ff5e36] to-[#9e2a2b] hover:from-[#ff734f] hover:to-[#b13536] text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-1 border-0"
+              >
+                {loading ? 'Entering...' : 'Enter Console'} <ChevronRight size={14} />
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUp} className="flex flex-col gap-3 text-xs max-h-[50vh] overflow-y-auto pr-1">
+              <Select
+                label="Registration Type"
+                value={signUpForm.register_type}
+                onChange={e => setSignUpForm({ ...signUpForm, register_type: e.target.value })}
+                options={[
+                  { value: 'TRADER_PORTAL', label: 'Surat Fabric Trader (Job Work)' },
+                  { value: 'NEW_MILL', label: 'New Dyeing/Finishing Mill' }
+                ]}
+              />
 
-          <div className="mt-4 pt-4 border-t border-slate-100 text-center">
-            <span className="text-xs text-slate-400">Default Accounts:</span>
-            <div className="flex justify-center gap-4 text-xs font-semibold text-slate-500 mt-2">
-              <span>admin / admin123</span>
-              <span>manager1 / manager123</span>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Username"
+                  value={signUpForm.username}
+                  onChange={e => setSignUpForm({ ...signUpForm, username: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Password"
+                  type="password"
+                  value={signUpForm.password}
+                  onChange={e => setSignUpForm({ ...signUpForm, password: e.target.value })}
+                  required
+                />
+              </div>
+
+              <Input
+                label="Full Name"
+                value={signUpForm.full_name}
+                onChange={e => setSignUpForm({ ...signUpForm, full_name: e.target.value })}
+                required
+              />
+
+              <Input
+                label="Email"
+                type="email"
+                value={signUpForm.email}
+                onChange={e => setSignUpForm({ ...signUpForm, email: e.target.value })}
+                required
+              />
+
+              {signUpForm.register_type === 'NEW_MILL' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Mill Name"
+                    value={signUpForm.mill_name}
+                    onChange={e => setSignUpForm({ ...signUpForm, mill_name: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="GSTIN"
+                    value={signUpForm.gstin}
+                    onChange={e => setSignUpForm({ ...signUpForm, gstin: e.target.value })}
+                    placeholder="24AAAAA0000A1Z5"
+                    required
+                  />
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-2.5 bg-gradient-to-r from-[#ff5e36] to-[#9e2a2b] hover:from-[#ff734f] hover:to-[#b13536] text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-1 border-0"
+              >
+                {loading ? 'Creating...' : 'Register Profile'} <ChevronRight size={14} />
+              </Button>
+            </form>
+          )}
+
+          {/* Quick Demo Logins Info */}
+          <div className="pt-4 border-t border-white/10 text-center flex flex-col gap-2">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Demo Mill Accounts</span>
+            <div className="flex justify-center gap-4 text-xs font-semibold text-slate-300">
+              <button 
+                onClick={() => setSignInForm({ username: 'admin', password: 'admin123' })}
+                className="hover:text-[#ff5e36] border border-white/10 bg-white/[0.02] px-2 py-1 rounded transition-all"
+              >
+                admin
+              </button>
+              <button 
+                onClick={() => setSignInForm({ username: 'prod_mgr', password: 'manager123' })}
+                className="hover:text-[#ff5e36] border border-white/10 bg-white/[0.02] px-2 py-1 rounded transition-all"
+              >
+                prod_mgr
+              </button>
+              <button 
+                onClick={() => setSignInForm({ username: 'qc1', password: 'qc123' })}
+                className="hover:text-[#ff5e36] border border-white/10 bg-white/[0.02] px-2 py-1 rounded transition-all"
+              >
+                qc1
+              </button>
             </div>
           </div>
-        </form>
+
+        </div>
       </div>
+
     </div>
   );
 }

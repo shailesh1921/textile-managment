@@ -51,4 +51,56 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/register', async (req, res) => {
+  const { username, password, email, full_name, mill_name, gstin, register_type } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const hash = bcrypt.hashSync(password, 10);
+    let tenantId = '00000000-0000-0000-0000-000000000001'; // default tenant
+
+    if (register_type === 'NEW_MILL') {
+      // Create a new tenant mill
+      const tResult = await client.query(
+        `INSERT INTO tenants (mill_name, gstin, address) VALUES ($1, $2, 'Surat, Gujarat') RETURNING tenant_id`,
+        [mill_name || `${full_name}'s Mill`, gstin || `24AAACS${Math.floor(Math.random() * 100000)}A1Z0`]
+      );
+      tenantId = tResult.rows[0].tenant_id;
+
+      // Seed default roles for this new tenant
+      const defaultRoles = [
+        [1, 'ADMIN', 'Administrator'],
+        [2, 'PRODUCTION_MANAGER', 'Production Manager'],
+        [3, 'MACHINE_OPERATOR', 'Machine Operator'],
+        [4, 'QC_INSPECTOR', 'QC Inspector'],
+        [5, 'ACCOUNTS', 'Accounts'],
+        [6, 'DISPATCH', 'Dispatch'],
+        [7, 'PARTY_PORTAL', 'Party Portal'],
+      ];
+      for (const [rid, code, name] of defaultRoles) {
+        await client.query(
+          `INSERT INTO roles (role_id, tenant_id, role_code, role_name) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+          [rid, tenantId, code, name]
+        );
+      }
+    }
+
+    // Insert user
+    const roleId = register_type === 'NEW_MILL' ? 1 : 7; // Mill Admin or Party Portal
+    const userResult = await client.query(
+      `INSERT INTO users (tenant_id, username, email, password_hash, full_name, role_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [tenantId, username, email || `${username}@skdyeing.com`, hash, full_name, roleId]
+    );
+
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Registration successful', user: userResult.rows[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
