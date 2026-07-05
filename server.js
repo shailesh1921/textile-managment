@@ -535,6 +535,67 @@ app.post('/api/production/work-orders/:id/status', authenticateToken, async (req
   }
 });
 
+app.get('/api/production/allocations', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT ma.*, wo.wo_number, m.name as machine_name, m.machine_code, p.name as product_name
+       FROM machine_allocations ma
+       JOIN work_orders wo ON ma.wo_id = wo.wo_id
+       JOIN machines m ON ma.machine_id = m.machine_id
+       JOIN products p ON wo.product_id = p.product_id
+       ORDER BY ma.allocation_id DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/production/allocations', authenticateToken, async (req, res) => {
+  const { wo_id, machine_id, planned_start_time, planned_end_time, notes } = req.body;
+  try {
+    await pool.query('BEGIN');
+    
+    const result = await pool.query(
+      `INSERT INTO machine_allocations (wo_id, machine_id, planned_start_time, planned_end_time, status, notes)
+       VALUES ($1, $2, $3, $4, 'scheduled', $5) RETURNING *`,
+      [wo_id, machine_id, planned_start_time, planned_end_time, notes]
+    );
+    
+    await pool.query('UPDATE machines SET status = \'in_use\', updated_at = NOW() WHERE machine_id = $1', [machine_id]);
+    await pool.query('UPDATE work_orders SET status = \'planned\', updated_at = NOW() WHERE wo_id = $1', [wo_id]);
+    
+    await pool.query('COMMIT');
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/production/allocations/:id/release', authenticateToken, async (req, res) => {
+  try {
+    await pool.query('BEGIN');
+    
+    const allocRes = await pool.query('SELECT machine_id, wo_id FROM machine_allocations WHERE allocation_id = $1', [req.params.id]);
+    if (allocRes.rows.length === 0) return res.status(404).json({ error: 'Allocation not found' });
+    const { machine_id, wo_id } = allocRes.rows[0];
+    
+    await pool.query(
+      'UPDATE machine_allocations SET status = \'completed\', actual_end_time = NOW() WHERE allocation_id = $1',
+      [req.params.id]
+    );
+    
+    await pool.query('UPDATE machines SET status = \'available\', updated_at = NOW() WHERE machine_id = $1', [machine_id]);
+    
+    await pool.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/production/production-logs', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(

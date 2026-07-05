@@ -9,9 +9,11 @@ export default function Production() {
   const [machines, setMachines] = useState([]);
   const [products, setProducts] = useState([]);
   const [productionLogs, setProductionLogs] = useState([]);
+  const [allocations, setAllocations] = useState([]);
 
   const [isWoModalOpen, setIsWoModalOpen] = useState(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [isAllocModalOpen, setIsAllocModalOpen] = useState(false);
 
   // Form states
   const [woForm, setWoForm] = useState({
@@ -20,6 +22,10 @@ export default function Production() {
 
   const [logForm, setLogForm] = useState({
     wo_id: '', quantity_produced: '', quantity_rejected: '', shift: 'morning', machine_id: '', downtime_minutes: 0, downtime_reason: '', notes: ''
+  });
+
+  const [allocForm, setAllocForm] = useState({
+    wo_id: '', machine_id: '', planned_start_time: '', planned_end_time: '', notes: ''
   });
 
   const fetchData = async () => {
@@ -32,6 +38,8 @@ export default function Production() {
       setProducts(prods || []);
       const logs = await api.get('/api/production/production-logs');
       setProductionLogs(logs || []);
+      const allocs = await api.get('/api/production/allocations').catch(() => []);
+      setAllocations(allocs || []);
     } catch (err) {
       console.error('Error fetching production logs:', err.message);
     }
@@ -83,6 +91,27 @@ export default function Production() {
     }
   };
 
+  const handleCreateAllocation = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/production/allocations', allocForm);
+      setIsAllocModalOpen(false);
+      setAllocForm({ wo_id: '', machine_id: '', planned_start_time: '', planned_end_time: '', notes: '' });
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleReleaseAllocation = async (allocId) => {
+    try {
+      await api.post(`/api/production/allocations/${allocId}/release`);
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Sub tabs */}
@@ -96,6 +125,14 @@ export default function Production() {
           Production Work Orders
         </button>
         <button
+          onClick={() => setProdTab('scheduler')}
+          className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all ${
+            prodTab === 'scheduler' ? 'border-emerald-600 text-emerald-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Loom Production Scheduler
+        </button>
+        <button
           onClick={() => setProdTab('machines')}
           className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all ${
             prodTab === 'machines' ? 'border-emerald-600 text-emerald-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -105,7 +142,7 @@ export default function Production() {
         </button>
       </div>
 
-      {prodTab === 'workorders' ? (
+      {prodTab === 'workorders' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Work Orders List */}
           <div className="lg:col-span-2">
@@ -206,8 +243,84 @@ export default function Production() {
             </Card>
           </div>
         </div>
-      ) : (
-        /* Machines tab */
+      )}
+
+      {prodTab === 'scheduler' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <Card 
+              title="Active Loom Allocations" 
+              headerActions={
+                <Button onClick={() => setIsAllocModalOpen(true)} className="flex items-center gap-1 bg-emerald-600 text-xs py-1.5">
+                  <Plus size={14} /> Allocate Loom
+                </Button>
+              }
+            >
+              <div className="mt-4">
+                <Table headers={['Challan / WO', 'Loom Machine', 'Fabric Product', 'Planned Range', 'Status', 'Actions']}>
+                  {allocations.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-10 text-center text-slate-400">
+                        No active work allocations. Click 'Allocate Loom' to assign runs.
+                      </td>
+                    </tr>
+                  ) : (
+                    allocations.map((alloc) => (
+                      <tr key={alloc.allocation_id} className="hover:bg-slate-50 text-xs">
+                        <td className="px-6 py-4 font-bold text-slate-800">{alloc.wo_number}</td>
+                        <td className="px-6 py-4 font-mono font-bold text-slate-600">{alloc.machine_name} ({alloc.machine_code})</td>
+                        <td className="px-6 py-4 font-semibold text-slate-700">{alloc.product_name}</td>
+                        <td className="px-6 py-4 text-slate-500">
+                          {alloc.planned_start_time ? new Date(alloc.planned_start_time).toLocaleDateString() : 'N/A'} - {alloc.planned_end_time ? new Date(alloc.planned_end_time).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge status={alloc.status}>{alloc.status}</Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          {alloc.status === 'scheduled' && (
+                            <button
+                              onClick={() => handleReleaseAllocation(alloc.allocation_id)}
+                              className="bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-200 px-2 py-1 rounded font-bold"
+                            >
+                              Release Loom
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </Table>
+              </div>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-1">
+            <Card title="Available Loom Machines">
+              <div className="flex flex-col gap-3 mt-2">
+                {machines.filter(m => m.status === 'available').length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 text-xs">
+                    All loom machines are currently operating.
+                  </div>
+                ) : (
+                  machines.filter(m => m.status === 'available').map((m) => (
+                    <div key={m.machine_id} className="p-3 border border-slate-100 bg-emerald-50/30 rounded-lg flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-slate-800 text-xs block">{m.name}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{m.machine_code} - {m.machine_type}</span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 uppercase">
+                        Available
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {prodTab === 'machines' && (
         <Card title="Shopfloor Weaving & Dyeing Equipment">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
             {machines.map((mac) => (
@@ -349,6 +462,47 @@ export default function Production() {
           <div className="flex justify-end gap-3 mt-4 border-t pt-4">
             <Button variant="secondary" onClick={() => setIsLogModalOpen(false)}>Discard</Button>
             <Button type="submit" variant="primary">Log Yield</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Allocate Loom Modal */}
+      <Modal isOpen={isAllocModalOpen} onClose={() => setIsAllocModalOpen(false)} title="Allocate Loom / Machine to Work Order">
+        <form onSubmit={handleCreateAllocation} className="flex flex-col gap-4 text-xs">
+          <Select
+            label="Select Work Order (Unallocated)"
+            value={allocForm.wo_id}
+            onChange={(e) => setAllocForm({...allocForm, wo_id: e.target.value})}
+            options={[
+              { value: '', label: '-- Select Work Order --' },
+              ...workOrders.filter(w => w.status === 'planned' || w.status === 'released' || w.status === 'draft').map(w => ({
+                value: w.wo_id,
+                label: `${w.wo_number} - ${w.product_name} (${parseFloat(w.quantity)} m)`
+              }))
+            ]}
+            required
+          />
+          <Select
+            label="Select Available Loom Machine"
+            value={allocForm.machine_id}
+            onChange={(e) => setAllocForm({...allocForm, machine_id: e.target.value})}
+            options={[
+              { value: '', label: '-- Select Machine --' },
+              ...machines.filter(m => m.status === 'available').map(m => ({
+                value: m.machine_id,
+                label: `${m.name} (${m.machine_code}) - Speed: ${parseFloat(m.capacity)} ${m.capacity_unit}`
+              }))
+            ]}
+            required
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Planned Start Date" type="date" value={allocForm.planned_start_time} onChange={(e) => setAllocForm({...allocForm, planned_start_time: e.target.value})} required />
+            <Input label="Planned End Date" type="date" value={allocForm.planned_end_time} onChange={(e) => setAllocForm({...allocForm, planned_end_time: e.target.value})} required />
+          </div>
+          <Input label="Allocation parameters / notes" placeholder="Tension settings, shift assignments..." value={allocForm.notes} onChange={(e) => setAllocForm({...allocForm, notes: e.target.value})} />
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button variant="secondary" onClick={() => setIsAllocModalOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Confirm Allocation</Button>
           </div>
         </form>
       </Modal>
