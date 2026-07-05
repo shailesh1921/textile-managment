@@ -1,0 +1,64 @@
+const express = require('express');
+const { pool } = require('../db');
+const { authenticateToken } = require('../middleware');
+const { nextDocNo } = require('../utils/helpers');
+
+const router = express.Router();
+
+router.post('/job-work/run', authenticateToken, async (req, res) => {
+  const { job_order_id } = req.body;
+  const jo = await pool.query(`SELECT * FROM job_orders WHERE job_order_id = $1`, [job_order_id]);
+  if (!jo.rows.length) return res.status(404).json({ error: 'Not found' });
+  const o = jo.rows[0];
+  const lot = await pool.query(`SELECT COALESCE(SUM(finished_qty_meters),0) as m, COALESCE(SUM(finished_qty_kg),0) as kg FROM lots WHERE job_order_id = $1`, [job_order_id]);
+  const qty = o.billing_uom === 'KG' ? lot.rows[0].kg : lot.rows[0].m;
+  const rate = o.billing_uom === 'KG' ? o.rate_per_kg : o.rate_per_meter;
+  const gross = parseFloat(qty) * parseFloat(rate);
+  const no = await nextDocNo(req.user.tenant_id, 'BILL', 'job_work_bills', 'bill_no');
+  const bill = await pool.query(
+    `INSERT INTO job_work_bills (tenant_id, job_order_id, bill_no, processed_qty_meters, processed_qty_kg, rate, gross_amount, net_amount)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$7) RETURNING *`,
+    [req.user.tenant_id, job_order_id, no, lot.rows[0].m, lot.rows[0].kg, rate, gross]
+  );
+  res.status(201).json(bill.rows[0]);
+});
+
+router.get('/ledger', authenticateToken, async (req, res) => {
+  const { party_id } = req.query;
+  const r = await pool.query(`SELECT * FROM party_ledger WHERE tenant_id = $1 AND party_id = $2 ORDER BY entry_date`, [req.user.tenant_id, party_id]);
+  res.json(r.rows);
+});
+
+router.get('/ageing', authenticateToken, async (req, res) => {
+  const r = await pool.query(
+    `SELECT p.party_id, p.trade_name, p.outstanding_balance, p.credit_period_days,
+      COALESCE(SUM(CASE WHEN CURRENT_DATE - pl.entry_date <= 30 THEN pl.debit_amount - pl.credit_amount ELSE 0 END),0) as bucket_0_30,
+      COALESCE(SUM(CASE WHEN CURRENT_DATE - pl.entry_date BETWEEN 31 AND 60 THEN pl.debit_amount - pl.credit_amount ELSE 0 END),0) as bucket_31_60,
+      COALESCE(SUM(CASE WHEN CURRENT_DATE - pl.entry_date BETWEEN 61 AND 90 THEN pl.debit_amount - pl.credit_amount ELSE 0 END),0) as bucket_61_90,
+      COALESCE(SUM(CASE WHEN CURRENT_DATE - pl.entry_date > 90 THEN pl.debit_amount - pl.credit_amount ELSE 0 END),0) as bucket_90_plus
+     FROM parties p LEFT JOIN party_ledger pl ON p.party_id = pl.party_id
+     WHERE p.tenant_id = $1 AND p.party_type = 'TRADER_MERCHANT' GROUP BY p.party_id ORDER BY p.trade_name`,
+    [req.user.tenant_id]);
+  res.json(r.rows);
+});
+
+router.get('/lot-cost/:lotId', authenticateToken, async (req, res) => {
+  const lotId = req.params.lotId;
+  const disp = await pool.query(
+    `SELECT COALESCE(SUM(rdl.actual_qty * dcs.unit_cost),0) as recipe_cost FROM recipe_dispensing_logs rdl
+     JOIN batch_runs br ON rdl.batch_id = br.batch_id
+     LEFT JOIN dye_chemical_stock_batches dcs ON rdl.stock_batch_id = dcs.stock_batch_id WHERE br.lot_id = $1`, [lotId]);
+  const jo = await pool.query(`SELECT jo.rate_per_meter, jo.qty_meters_ordered FROM lots l JOIN job_orders jo ON l.job_order_id = jo.job_order_id WHERE l.lot_id = $1`, [lotId]);
+  const recipeCost = parseFloat(disp.rows[0].recipe_cost);
+  const billed = parseFloat(jo.rows[0]?.rate_per_meter || 0) * parseFloat(jo.rows[0]?.qty_meters_ordered || 0);
+  const machineCost = recipeCost * 0.3;
+  const total = recipeCost + machineCost;
+  const sheet = await pool.query(
+    `INSERT INTO lot_cost_sheets (tenant_id, lot_id, recipe_cost, machine_hour_cost, total_cost, billed_amount, profit_margin, profit_margin_pct)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING *`,
+    [req.user.tenant_id, lotId, recipeCost, machineCost, total, billed, billed - total, billed ? (((billed - total) / billed) * 100).toFixed(2) : 0]
+  );
+  res.json(sheet.rows[0] || { lot_id: lotId, recipe_cost: recipeCost, total_cost: total, billed_amount: billed });
+});
+
+module.exports = router;

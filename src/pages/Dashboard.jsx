@@ -83,9 +83,9 @@ export default function Dashboard() {
         <Card className="hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start">
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sales Revenue</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Job-Work Billed</span>
               <span className="text-2xl font-black text-slate-800">
-                ₹{metrics?.sales_revenue ? metrics.sales_revenue.toLocaleString('en-IN') : '0'}
+                ₹{metrics?.job_work_billed ? Number(metrics.job_work_billed).toLocaleString('en-IN') : '0'}
               </span>
             </div>
             <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-lg border border-emerald-100">
@@ -93,17 +93,16 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="text-[11px] text-emerald-600 font-semibold mt-3 flex items-center gap-1">
-            <span>+12.4%</span>
-            <span className="text-slate-400 font-normal">from last month</span>
+            <span>Live Account Receivables</span>
           </div>
         </Card>
 
         <Card className="hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start">
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Procurement Costs</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Average Shrinkage</span>
               <span className="text-2xl font-black text-slate-800">
-                ₹{metrics?.purchase_costs ? metrics.purchase_costs.toLocaleString('en-IN') : '0'}
+                {metrics?.avg_shrinkage_pct || '0.00'}%
               </span>
             </div>
             <div className="bg-blue-50 text-blue-600 p-2.5 rounded-lg border border-blue-100">
@@ -111,16 +110,16 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="text-[11px] text-slate-400 font-semibold mt-3 flex items-center gap-1">
-            <span>Net Procurement Expenses</span>
+            <span>Cumulative mill processing loss</span>
           </div>
         </Card>
 
         <Card className="hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start">
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Runs</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Jobs</span>
               <span className="text-2xl font-black text-slate-800">
-                {metrics?.active_work_orders || '0'} / {metrics?.active_machines || '0'}
+                {metrics?.pending_job_orders || '0'} / {metrics?.total_machines || '0'}
               </span>
             </div>
             <div className="bg-indigo-50 text-indigo-600 p-2.5 rounded-lg border border-indigo-100">
@@ -128,7 +127,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="text-[11px] text-slate-400 font-semibold mt-3 flex items-center gap-1">
-            <span>Work Orders & Machines running</span>
+            <span>Pending & Running Job Cards</span>
           </div>
         </Card>
 
@@ -145,7 +144,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="text-[11px] text-slate-400 font-semibold mt-3 flex items-center gap-1">
-            <span>{metrics?.qc_inspections || '0'} batch inspections completed</span>
+            <span>Total batch inspections completed</span>
           </div>
         </Card>
       </div>

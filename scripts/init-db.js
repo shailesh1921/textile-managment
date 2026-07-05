@@ -2,634 +2,1003 @@ const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-const connectionString = process.env.DATABASE_URL;
+const DEFAULT_TENANT = '00000000-0000-0000-0000-000000000001';
 
+const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  console.error('Error: DATABASE_URL is not set in environment variables.');
+  console.error('Error: DATABASE_URL is not set.');
   process.exit(1);
 }
 
-const client = new Client({
-  connectionString: connectionString,
-  ssl: { rejectUnauthorized: false }
-});
+const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
 
 async function run() {
   try {
-    console.log('Connecting to Neon PostgreSQL database...');
     await client.connect();
-    console.log('Connected successfully!');
+    console.log('Connected to PostgreSQL. Initializing dyeing mill ERP schema...');
 
-    // Create DDL schema
-    console.log('Wiping legacy mismatching database tables...');
     await client.query(`
-      DROP TABLE IF EXISTS 
-        communication_logs, dispatch_notes, batch_approvals, defect_logs, qc_inspections, 
-        production_logs, machine_allocations, work_orders, so_items, sales_orders, 
-        customers, machines, bom, products, reorder_alerts, stock_movements, 
-        inventory_items, supplier_ratings, po_items, purchase_orders, materials, 
-        suppliers, audit_logs, users, roles, orders
+      DROP TABLE IF EXISTS
+        communication_logs, return_materials, eway_bills, dispatch_challan_lines, dispatch_challans,
+        lot_cost_sheets, party_ledger, job_work_bills, gst_invoice_lines, gst_invoices,
+        purchase_invoices, grn_records, po_items, purchase_orders,
+        packing_stock, packing_materials, finished_goods_inventory, grey_fabric_inventory,
+        dye_chemical_stock_batches, stock_movements, reorder_alerts,
+        qc_hold_notifications, lab_test_results, shade_approval_logs, qc_defects, qc_inspections,
+        reprocess_records, production_entries, recipe_dispensing_logs, batch_runs, machine_status_log,
+        lot_process_stages, lot_genealogy, lots, job_orders,
+        recipe_lines, recipes, process_template_steps, process_templates,
+        dye_chemicals, shades, fabrics, parties,
+        audit_logs, users, roles, tenants, machines
       CASCADE;
     `);
-    console.log('Initializing schema tables...');
 
-    // 1. Roles
     await client.query(`
-      CREATE TABLE IF NOT EXISTS roles (
+      CREATE TABLE tenants (
+        tenant_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        mill_name VARCHAR(200) NOT NULL,
+        gstin VARCHAR(15) UNIQUE NOT NULL,
+        pan VARCHAR(10),
+        state_code CHAR(2) DEFAULT '24',
+        address TEXT, city VARCHAR(100), pincode VARCHAR(10),
+        financial_year_start SMALLINT DEFAULT 4,
+        default_uom_fabric VARCHAR(10) DEFAULT 'METER',
+        costing_method_chemicals VARCHAR(20) DEFAULT 'FIFO',
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE roles (
         role_id SERIAL PRIMARY KEY,
-        role_name VARCHAR(50) UNIQUE NOT NULL,
-        permissions TEXT,
+        tenant_id UUID REFERENCES tenants(tenant_id),
+        role_code VARCHAR(30) UNIQUE NOT NULL,
+        role_name VARCHAR(50) NOT NULL,
+        permissions JSONB DEFAULT '{}',
         description VARCHAR(200),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // 2. Users
     await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE users (
         user_id SERIAL PRIMARY KEY,
-        username VARCHAR(50) UNIQUE NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        username VARCHAR(50) NOT NULL,
+        email VARCHAR(100) NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         full_name VARCHAR(100),
-        role_id INT NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
+        employee_code VARCHAR(30),
+        role_id INT NOT NULL REFERENCES roles(role_id),
+        shift_default VARCHAR(5) DEFAULT 'A',
+        is_party_portal_user BOOLEAN DEFAULT FALSE,
+        linked_party_id INT,
         is_active BOOLEAN DEFAULT TRUE,
         last_login TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, username),
+        UNIQUE(tenant_id, email)
       );
     `);
 
-    // 3. Audit Logs
     await client.query(`
-      CREATE TABLE IF NOT EXISTS audit_logs (
-        log_id SERIAL PRIMARY KEY,
-        user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-        action VARCHAR(100) NOT NULL,
-        entity_type VARCHAR(50),
-        entity_id INT,
-        details TEXT,
+      CREATE TABLE audit_logs (
+        log_id BIGSERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        user_id INT REFERENCES users(user_id),
+        action VARCHAR(50) NOT NULL,
+        entity_type VARCHAR(80),
+        entity_id VARCHAR(50),
+        old_values JSONB,
+        new_values JSONB,
         ip_address VARCHAR(45),
-        timestamp TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 4. Suppliers
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS suppliers (
-        supplier_id SERIAL PRIMARY KEY,
-        supplier_code VARCHAR(50) UNIQUE NOT NULL,
-        name VARCHAR(200) NOT NULL,
-        contact_person VARCHAR(100),
-        email VARCHAR(100),
-        phone VARCHAR(20),
-        address TEXT,
-        city VARCHAR(100),
-        state VARCHAR(100),
-        country VARCHAR(100),
-        postal_code VARCHAR(20),
-        tax_id VARCHAR(50),
-        payment_terms VARCHAR(100),
-        credit_limit DECIMAL(15, 2),
-        rating DECIMAL(3, 2),
-        status VARCHAR(20) DEFAULT 'active',
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 5. Materials
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS materials (
-        material_id SERIAL PRIMARY KEY,
-        material_code VARCHAR(50) UNIQUE NOT NULL,
-        name VARCHAR(200) NOT NULL,
-        description TEXT,
-        category VARCHAR(50) NOT NULL,
-        unit VARCHAR(20) NOT NULL,
-        reorder_level DECIMAL(15, 3),
-        reorder_quantity DECIMAL(15, 3),
-        unit_cost DECIMAL(15, 2),
-        hsn_code VARCHAR(20),
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 6. Purchase Orders
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS purchase_orders (
-        po_id SERIAL PRIMARY KEY,
-        po_number VARCHAR(50) UNIQUE NOT NULL,
-        supplier_id INT NOT NULL REFERENCES suppliers(supplier_id) ON DELETE CASCADE,
-        order_date DATE NOT NULL,
-        expected_delivery_date DATE,
-        actual_delivery_date DATE,
-        status VARCHAR(30) DEFAULT 'draft',
-        total_amount DECIMAL(15, 2),
-        tax_amount DECIMAL(15, 2),
-        discount_amount DECIMAL(15, 2),
-        net_amount DECIMAL(15, 2),
-        payment_terms VARCHAR(100),
-        notes TEXT,
-        approved_by INT REFERENCES users(user_id),
-        approved_at TIMESTAMPTZ,
-        created_by INT NOT NULL REFERENCES users(user_id),
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 7. PO Items
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS po_items (
-        item_id SERIAL PRIMARY KEY,
-        po_id INT NOT NULL REFERENCES purchase_orders(po_id) ON DELETE CASCADE,
-        material_id INT NOT NULL REFERENCES materials(material_id) ON DELETE CASCADE,
-        quantity DECIMAL(15, 3) NOT NULL,
-        unit_price DECIMAL(15, 2) NOT NULL,
-        total_price DECIMAL(15, 2),
-        tax_rate DECIMAL(5, 2),
-        tax_amount DECIMAL(15, 2),
-        discount_rate DECIMAL(5, 2),
-        discount_amount DECIMAL(15, 2),
-        received_quantity DECIMAL(15, 3) DEFAULT 0,
-        notes TEXT
-      );
-    `);
-
-    // 8. Supplier Ratings
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS supplier_ratings (
-        rating_id SERIAL PRIMARY KEY,
-        supplier_id INT NOT NULL REFERENCES suppliers(supplier_id) ON DELETE CASCADE,
-        po_id INT REFERENCES purchase_orders(po_id) ON DELETE SET NULL,
-        quality_score DECIMAL(3, 2),
-        delivery_score DECIMAL(3, 2),
-        price_score DECIMAL(3, 2),
-        communication_score DECIMAL(3, 2),
-        overall_score DECIMAL(3, 2),
-        delivery_time_days INT,
-        defect_rate DECIMAL(5, 2),
-        comments TEXT,
-        rated_by INT REFERENCES users(user_id),
-        rated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 9. Inventory Items
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS inventory_items (
-        item_id SERIAL PRIMARY KEY,
-        material_id INT NOT NULL REFERENCES materials(material_id) ON DELETE CASCADE,
-        batch_number VARCHAR(50),
-        quantity DECIMAL(15, 3) NOT NULL,
-        location VARCHAR(100),
-        warehouse VARCHAR(100),
-        bin_location VARCHAR(50),
-        unit_cost DECIMAL(15, 2),
-        total_value DECIMAL(15, 2),
-        manufactured_date TIMESTAMPTZ,
-        expiry_date TIMESTAMPTZ,
-        supplier_id INT REFERENCES suppliers(supplier_id) ON DELETE SET NULL,
-        po_id INT REFERENCES purchase_orders(po_id) ON DELETE SET NULL,
-        quality_status VARCHAR(50) DEFAULT 'approved',
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 10. Stock Movements
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS stock_movements (
-        movement_id SERIAL PRIMARY KEY,
-        material_id INT NOT NULL REFERENCES materials(material_id) ON DELETE CASCADE,
-        movement_type VARCHAR(30) NOT NULL,
-        quantity DECIMAL(15, 3) NOT NULL,
-        batch_number VARCHAR(50),
-        from_location VARCHAR(100),
-        to_location VARCHAR(100),
-        reference_type VARCHAR(50),
-        reference_id INT,
-        unit_cost DECIMAL(15, 2),
-        total_value DECIMAL(15, 2),
-        notes TEXT,
-        created_by INT NOT NULL REFERENCES users(user_id),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // 11. Reorder Alerts
     await client.query(`
-      CREATE TABLE IF NOT EXISTS reorder_alerts (
-        alert_id SERIAL PRIMARY KEY,
-        material_id INT NOT NULL REFERENCES materials(material_id) ON DELETE CASCADE,
-        current_stock DECIMAL(15, 3),
-        reorder_level DECIMAL(15, 3),
-        recommended_quantity DECIMAL(15, 3),
-        priority VARCHAR(20),
-        status VARCHAR(20) DEFAULT 'pending',
-        po_id INT REFERENCES purchase_orders(po_id) ON DELETE SET NULL,
-        notes TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        resolved_at TIMESTAMPTZ,
-        resolved_by INT REFERENCES users(user_id)
-      );
-    `);
-
-    // 12. Products
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        product_id SERIAL PRIMARY KEY,
-        product_code VARCHAR(50) UNIQUE NOT NULL,
-        name VARCHAR(200) NOT NULL,
-        description TEXT,
-        category VARCHAR(100),
-        unit VARCHAR(20),
-        standard_cost DECIMAL(15, 2),
-        selling_price DECIMAL(15, 2),
-        lead_time_days INT,
+      CREATE TABLE parties (
+        party_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        party_code VARCHAR(30) NOT NULL,
+        party_type VARCHAR(30) NOT NULL CHECK (party_type IN ('TRADER_MERCHANT','SUPPLIER','TRANSPORTER','BROKER_AGENT')),
+        legal_name VARCHAR(200) NOT NULL,
+        trade_name VARCHAR(200),
+        gstin VARCHAR(15),
+        pan VARCHAR(10),
+        state_code CHAR(2) DEFAULT '24',
+        billing_address TEXT, shipping_address TEXT,
+        contact_person VARCHAR(100), mobile VARCHAR(20), email VARCHAR(100),
+        credit_limit DECIMAL(15,2) DEFAULT 0,
+        credit_period_days INT DEFAULT 30,
+        outstanding_balance DECIMAL(15,2) DEFAULT 0,
+        broker_commission_pct DECIMAL(5,2) DEFAULT 0,
+        is_job_work_client BOOLEAN DEFAULT FALSE,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, party_code)
       );
     `);
 
-    // 13. BOM
     await client.query(`
-      CREATE TABLE IF NOT EXISTS bom (
-        bom_id SERIAL PRIMARY KEY,
-        product_id INT NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
-        material_id INT NOT NULL REFERENCES materials(material_id) ON DELETE CASCADE,
-        quantity_required DECIMAL(15, 3) NOT NULL,
-        wastage_percentage DECIMAL(5, 2) DEFAULT 0,
-        unit VARCHAR(20),
-        notes TEXT,
+      CREATE TABLE fabrics (
+        fabric_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        fabric_code VARCHAR(30) NOT NULL,
+        fabric_name VARCHAR(200) NOT NULL,
+        fabric_category VARCHAR(20) DEFAULT 'WOVEN',
+        construction_warp VARCHAR(50),
+        construction_weft VARCHAR(50),
+        width_inches DECIMAL(6,2),
+        finished_width_inches DECIMAL(6,2),
+        gsm DECIMAL(6,2),
+        blend_composition JSONB DEFAULT '{}',
+        hsn_code VARCHAR(8),
+        default_shrinkage_pct DECIMAL(5,2) DEFAULT 0,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        UNIQUE(tenant_id, fabric_code)
       );
     `);
 
-    // 14. Machines
     await client.query(`
-      CREATE TABLE IF NOT EXISTS machines (
+      CREATE TABLE shades (
+        shade_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        shade_card_no VARCHAR(50) NOT NULL,
+        shade_name VARCHAR(100) NOT NULL,
+        pantone_ref VARCHAR(30),
+        lab_l DECIMAL(8,4), lab_a DECIMAL(8,4), lab_b DECIMAL(8,4),
+        delta_e_tolerance DECIMAL(5,2) DEFAULT 1.0,
+        approved_sample_image_url VARCHAR(500),
+        customer_party_id INT REFERENCES parties(party_id),
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, shade_card_no)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE dye_chemicals (
+        item_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        item_code VARCHAR(30) NOT NULL,
+        item_name VARCHAR(200) NOT NULL,
+        category VARCHAR(30) NOT NULL,
+        uom VARCHAR(10) DEFAULT 'KG',
+        hsn_code VARCHAR(8),
+        gst_rate_pct DECIMAL(5,2) DEFAULT 18,
+        reorder_level DECIMAL(12,3) DEFAULT 0,
+        reorder_qty DECIMAL(12,3) DEFAULT 0,
+        preferred_supplier_id INT REFERENCES parties(party_id),
+        track_batch_expiry BOOLEAN DEFAULT TRUE,
+        shelf_life_days INT DEFAULT 365,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, item_code)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE machines (
         machine_id SERIAL PRIMARY KEY,
-        machine_code VARCHAR(50) UNIQUE NOT NULL,
-        name VARCHAR(200) NOT NULL,
-        machine_type VARCHAR(100),
-        capacity DECIMAL(15, 3),
-        capacity_unit VARCHAR(20),
-        status VARCHAR(30) DEFAULT 'available',
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        machine_code VARCHAR(30) NOT NULL,
+        machine_name VARCHAR(200) NOT NULL,
+        machine_type VARCHAR(30) NOT NULL,
+        capacity_value DECIMAL(12,3),
+        capacity_uom VARCHAR(30),
+        liquor_ratio_min DECIMAL(6,2),
+        liquor_ratio_max DECIMAL(6,2),
+        current_status VARCHAR(20) DEFAULT 'IDLE',
         location VARCHAR(100),
-        purchase_date DATE,
-        last_maintenance_date DATE,
-        next_maintenance_date DATE,
-        maintenance_frequency_days INT,
+        hourly_rate DECIMAL(12,2) DEFAULT 0,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        UNIQUE(tenant_id, machine_code)
       );
     `);
 
-    // 15. Customers (Surat Traders)
     await client.query(`
-      CREATE TABLE IF NOT EXISTS customers (
-        customer_id SERIAL PRIMARY KEY,
-        customer_code VARCHAR(50) UNIQUE NOT NULL,
-        name VARCHAR(200) NOT NULL,
-        contact_person VARCHAR(100),
-        email VARCHAR(100),
-        phone VARCHAR(20),
-        address TEXT,
-        city VARCHAR(100),
-        state VARCHAR(100),
-        country VARCHAR(100),
-        postal_code VARCHAR(20),
-        tax_id VARCHAR(50),
-        credit_limit DECIMAL(15, 2),
-        credit_days INT,
-        region VARCHAR(100),
-        customer_type VARCHAR(50),
-        rating DECIMAL(3, 2),
+      CREATE TABLE process_templates (
+        template_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        template_name VARCHAR(100) NOT NULL,
+        fabric_id INT REFERENCES fabrics(fabric_id),
+        process_type VARCHAR(30) NOT NULL,
         is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // 16. Sales Orders
     await client.query(`
-      CREATE TABLE IF NOT EXISTS sales_orders (
-        so_id SERIAL PRIMARY KEY,
-        so_number VARCHAR(50) UNIQUE NOT NULL,
-        customer_id INT NOT NULL REFERENCES customers(customer_id) ON DELETE CASCADE,
-        order_date DATE NOT NULL,
-        delivery_date DATE,
-        status VARCHAR(30) DEFAULT 'draft',
-        total_amount DECIMAL(15, 2),
-        tax_amount DECIMAL(15, 2),
-        discount_amount DECIMAL(15, 2),
-        net_amount DECIMAL(15, 2),
-        payment_terms VARCHAR(100),
-        shipping_address TEXT,
-        billing_address TEXT,
-        notes TEXT,
-        customer_po_number VARCHAR(100),
-        created_by INT NOT NULL REFERENCES users(user_id),
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+      CREATE TABLE process_template_steps (
+        step_id SERIAL PRIMARY KEY,
+        template_id INT NOT NULL REFERENCES process_templates(template_id) ON DELETE CASCADE,
+        sequence_no INT NOT NULL,
+        process_name VARCHAR(80) NOT NULL,
+        machine_type VARCHAR(30),
+        standard_time_mins INT DEFAULT 60,
+        expected_loss_pct DECIMAL(5,2) DEFAULT 0,
+        is_qc_checkpoint BOOLEAN DEFAULT FALSE
       );
     `);
 
-    // 17. SO Items
     await client.query(`
-      CREATE TABLE IF NOT EXISTS so_items (
-        item_id SERIAL PRIMARY KEY,
-        so_id INT NOT NULL REFERENCES sales_orders(so_id) ON DELETE CASCADE,
-        product_id INT NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
-        quantity DECIMAL(15, 3) NOT NULL,
-        unit_price DECIMAL(15, 2) NOT NULL,
-        total_price DECIMAL(15, 2),
-        tax_rate DECIMAL(5, 2),
-        tax_amount DECIMAL(15, 2),
-        discount_rate DECIMAL(5, 2),
-        discount_amount DECIMAL(15, 2),
-        dispatched_quantity DECIMAL(15, 3) DEFAULT 0,
+      CREATE TABLE recipes (
+        recipe_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        recipe_code VARCHAR(30) NOT NULL,
+        shade_id INT REFERENCES shades(shade_id),
+        fabric_id INT REFERENCES fabrics(fabric_id),
+        machine_type VARCHAR(30),
+        liquor_ratio DECIMAL(6,2) DEFAULT 8,
+        process_temp_celsius DECIMAL(5,1),
+        cycle_time_mins INT DEFAULT 120,
+        ph_target DECIMAL(4,2),
+        is_approved BOOLEAN DEFAULT FALSE,
+        approved_by INT REFERENCES users(user_id),
+        approved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, recipe_code)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE recipe_lines (
+        line_id SERIAL PRIMARY KEY,
+        recipe_id INT NOT NULL REFERENCES recipes(recipe_id) ON DELETE CASCADE,
+        item_id INT NOT NULL REFERENCES dye_chemicals(item_id),
+        dosage_pct DECIMAL(8,4) DEFAULT 0,
+        dosage_gpl DECIMAL(8,4) DEFAULT 0,
+        sequence_no INT DEFAULT 1,
+        is_critical BOOLEAN DEFAULT FALSE
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE job_orders (
+        job_order_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        job_order_no VARCHAR(30) NOT NULL,
+        party_id INT NOT NULL REFERENCES parties(party_id),
+        broker_id INT REFERENCES parties(party_id),
+        fabric_id INT NOT NULL REFERENCES fabrics(fabric_id),
+        grey_fabric_state VARCHAR(20) DEFAULT 'GREY',
+        ownership_type VARCHAR(20) DEFAULT 'CUSTOMER_OWNED',
+        qty_meters_ordered DECIMAL(12,3) NOT NULL,
+        qty_kg_ordered DECIMAL(12,3),
+        shade_id INT REFERENCES shades(shade_id),
+        process_type VARCHAR(30) NOT NULL,
+        process_template_id INT REFERENCES process_templates(template_id),
+        required_delivery_date DATE,
+        rate_per_meter DECIMAL(12,4) DEFAULT 0,
+        rate_per_kg DECIMAL(12,4) DEFAULT 0,
+        billing_uom VARCHAR(10) DEFAULT 'METER',
+        customer_po_ref VARCHAR(50),
+        inward_challan_ref VARCHAR(50),
+        status VARCHAR(30) DEFAULT 'DRAFT',
+        special_instructions TEXT,
+        created_by INT REFERENCES users(user_id),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, job_order_no)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE lots (
+        lot_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        lot_no VARCHAR(40) NOT NULL,
+        job_order_id INT NOT NULL REFERENCES job_orders(job_order_id),
+        parent_lot_id INT REFERENCES lots(lot_id),
+        lot_type VARCHAR(20) DEFAULT 'PRIMARY',
+        barcode_value VARCHAR(100) NOT NULL,
+        grey_qty_meters_in DECIMAL(12,3) NOT NULL,
+        grey_qty_kg_in DECIMAL(12,3),
+        finished_qty_meters DECIMAL(12,3) DEFAULT 0,
+        finished_qty_kg DECIMAL(12,3) DEFAULT 0,
+        cumulative_shrinkage_pct DECIMAL(6,3) DEFAULT 0,
+        current_status VARCHAR(20) DEFAULT 'WAITING',
+        is_reprocess BOOLEAN DEFAULT FALSE,
+        reprocess_reason_code VARCHAR(30),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, lot_no),
+        UNIQUE(tenant_id, barcode_value)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE lot_genealogy (
+        genealogy_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        parent_lot_id INT NOT NULL REFERENCES lots(lot_id),
+        child_lot_id INT NOT NULL REFERENCES lots(lot_id),
+        relationship VARCHAR(20) NOT NULL,
+        qty_meters_transferred DECIMAL(12,3),
+        qty_kg_transferred DECIMAL(12,3),
+        reason TEXT,
+        created_by INT REFERENCES users(user_id),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE lot_process_stages (
+        stage_id SERIAL PRIMARY KEY,
+        lot_id INT NOT NULL REFERENCES lots(lot_id) ON DELETE CASCADE,
+        sequence_no INT NOT NULL,
+        process_name VARCHAR(80) NOT NULL,
+        machine_type VARCHAR(30),
+        assigned_machine_id INT REFERENCES machines(machine_id),
+        status VARCHAR(20) DEFAULT 'PENDING',
+        planned_start TIMESTAMPTZ, planned_end TIMESTAMPTZ,
+        actual_start TIMESTAMPTZ, actual_end TIMESTAMPTZ,
+        input_meters DECIMAL(12,3), input_kg DECIMAL(12,3),
+        output_meters DECIMAL(12,3), output_kg DECIMAL(12,3),
+        stage_loss_pct DECIMAL(5,2) DEFAULT 0,
+        cumulative_shrinkage_pct DECIMAL(6,3) DEFAULT 0
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE batch_runs (
+        batch_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        batch_no VARCHAR(40) NOT NULL,
+        lot_id INT NOT NULL REFERENCES lots(lot_id),
+        stage_id INT NOT NULL REFERENCES lot_process_stages(stage_id),
+        machine_id INT NOT NULL REFERENCES machines(machine_id),
+        recipe_id INT REFERENCES recipes(recipe_id),
+        status VARCHAR(20) DEFAULT 'WAITING',
+        shift VARCHAR(5) DEFAULT 'A',
+        operator_id INT REFERENCES users(user_id),
+        fabric_weight_kg DECIMAL(12,3),
+        loaded_at TIMESTAMPTZ, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE recipe_dispensing_logs (
+        dispensing_id SERIAL PRIMARY KEY,
+        batch_id INT NOT NULL REFERENCES batch_runs(batch_id) ON DELETE CASCADE,
+        item_id INT NOT NULL REFERENCES dye_chemicals(item_id),
+        stock_batch_id INT,
+        standard_qty DECIMAL(12,4) NOT NULL,
+        actual_qty DECIMAL(12,4) NOT NULL,
+        variance_qty DECIMAL(12,4) DEFAULT 0,
+        variance_pct DECIMAL(6,2) DEFAULT 0,
+        dispensed_by INT REFERENCES users(user_id),
+        dispensed_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE production_entries (
+        entry_id SERIAL PRIMARY KEY,
+        batch_id INT NOT NULL REFERENCES batch_runs(batch_id),
+        shift_date DATE NOT NULL,
+        shift VARCHAR(5) DEFAULT 'A',
+        operator_id INT REFERENCES users(user_id),
+        machine_id INT REFERENCES machines(machine_id),
+        input_meters DECIMAL(12,3), input_kg DECIMAL(12,3),
+        output_meters DECIMAL(12,3), output_kg DECIMAL(12,3),
+        in_process_loss_pct DECIMAL(5,2) DEFAULT 0,
+        downtime_mins INT DEFAULT 0,
+        downtime_reason VARCHAR(30),
+        remarks TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE reprocess_records (
+        reprocess_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        original_lot_id INT NOT NULL REFERENCES lots(lot_id),
+        new_lot_id INT NOT NULL REFERENCES lots(lot_id),
+        reason_code VARCHAR(30) NOT NULL,
+        corrective_action TEXT,
+        approved_by INT REFERENCES users(user_id),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE machine_status_log (
+        log_id SERIAL PRIMARY KEY,
+        machine_id INT NOT NULL REFERENCES machines(machine_id),
+        old_status VARCHAR(20),
+        new_status VARCHAR(20) NOT NULL,
+        changed_by INT REFERENCES users(user_id),
+        changed_at TIMESTAMPTZ DEFAULT NOW(),
         notes TEXT
       );
     `);
 
-    // 18. Work Orders
     await client.query(`
-      CREATE TABLE IF NOT EXISTS work_orders (
-        wo_id SERIAL PRIMARY KEY,
-        wo_number VARCHAR(50) UNIQUE NOT NULL,
-        product_id INT NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
-        quantity DECIMAL(15, 3) NOT NULL,
-        unit VARCHAR(20),
-        planned_start_date DATE,
-        planned_end_date DATE,
-        actual_start_date TIMESTAMPTZ,
-        actual_end_date TIMESTAMPTZ,
-        status VARCHAR(30) DEFAULT 'draft',
-        priority VARCHAR(20),
-        sales_order_id INT REFERENCES sales_orders(so_id) ON DELETE SET NULL,
-        produced_quantity DECIMAL(15, 3) DEFAULT 0,
-        rejected_quantity DECIMAL(15, 3) DEFAULT 0,
-        notes TEXT,
-        created_by INT NOT NULL REFERENCES users(user_id),
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 19. Machine Allocations
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS machine_allocations (
-        allocation_id SERIAL PRIMARY KEY,
-        wo_id INT NOT NULL REFERENCES work_orders(wo_id) ON DELETE CASCADE,
-        machine_id INT NOT NULL REFERENCES machines(machine_id) ON DELETE CASCADE,
-        planned_start_time TIMESTAMPTZ,
-        planned_end_time TIMESTAMPTZ,
-        actual_start_time TIMESTAMPTZ,
-        actual_end_time TIMESTAMPTZ,
-        status VARCHAR(20),
-        notes TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 20. Production Logs
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS production_logs (
-        log_id SERIAL PRIMARY KEY,
-        wo_id INT NOT NULL REFERENCES work_orders(wo_id) ON DELETE CASCADE,
-        quantity_produced DECIMAL(15, 3) NOT NULL,
-        quantity_rejected DECIMAL(15, 3) DEFAULT 0,
-        shift VARCHAR(20),
-        operator_id INT REFERENCES users(user_id),
-        supervisor_id INT REFERENCES users(user_id),
-        machine_id INT REFERENCES machines(machine_id) ON DELETE SET NULL,
-        downtime_minutes INT DEFAULT 0,
-        downtime_reason TEXT,
-        notes TEXT,
-        logged_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 21. QC Inspections
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS qc_inspections (
+      CREATE TABLE qc_inspections (
         inspection_id SERIAL PRIMARY KEY,
-        inspection_number VARCHAR(50) UNIQUE NOT NULL,
-        wo_id INT REFERENCES work_orders(wo_id) ON DELETE CASCADE,
-        po_id INT REFERENCES purchase_orders(po_id) ON DELETE CASCADE,
-        batch_number VARCHAR(50) NOT NULL,
-        inspection_date TIMESTAMPTZ DEFAULT NOW(),
-        inspector_id INT NOT NULL REFERENCES users(user_id),
-        quantity_inspected DECIMAL(15, 3) NOT NULL,
-        quantity_accepted DECIMAL(15, 3),
-        quantity_rejected DECIMAL(15, 3),
-        result VARCHAR(20) DEFAULT 'pending',
+        tenant_id UUID NOT NULL,
+        inspection_no VARCHAR(30) NOT NULL,
+        lot_id INT NOT NULL REFERENCES lots(lot_id),
+        stage_id INT REFERENCES lot_process_stages(stage_id),
+        inspection_type VARCHAR(30) NOT NULL,
+        inspection_system VARCHAR(20),
+        total_points DECIMAL(8,2) DEFAULT 0,
+        qty_inspected_meters DECIMAL(12,3),
+        result VARCHAR(20) DEFAULT 'PENDING',
+        inspector_id INT REFERENCES users(user_id),
+        inspected_at TIMESTAMPTZ DEFAULT NOW(),
         remarks TEXT,
-        approved_by INT REFERENCES users(user_id),
-        approved_at TIMESTAMPTZ,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        UNIQUE(tenant_id, inspection_no)
       );
     `);
 
-    // 22. Defect Types
     await client.query(`
-      CREATE TABLE IF NOT EXISTS defect_types (
-        type_id SERIAL PRIMARY KEY,
-        code VARCHAR(50) UNIQUE NOT NULL,
-        name VARCHAR(200) NOT NULL,
-        category VARCHAR(100),
-        description TEXT,
-        threshold_percentage DECIMAL(5, 2),
-        severity VARCHAR(20) DEFAULT 'minor',
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // 23. Defect Logs
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS defect_logs (
+      CREATE TABLE qc_defects (
         defect_id SERIAL PRIMARY KEY,
         inspection_id INT NOT NULL REFERENCES qc_inspections(inspection_id) ON DELETE CASCADE,
-        defect_type_id INT NOT NULL REFERENCES defect_types(type_id) ON DELETE CASCADE,
-        quantity DECIMAL(15, 3) NOT NULL,
-        severity VARCHAR(20) NOT NULL,
-        location VARCHAR(200),
-        description TEXT,
-        root_cause TEXT,
-        corrective_action TEXT,
-        image_url VARCHAR(500),
-        logged_at TIMESTAMPTZ DEFAULT NOW()
+        defect_code VARCHAR(30) NOT NULL,
+        severity VARCHAR(20) DEFAULT 'MINOR',
+        points_assigned DECIMAL(4,1) DEFAULT 0,
+        location VARCHAR(100),
+        image_url VARCHAR(500)
       );
     `);
 
-    // 24. Batch Approvals
     await client.query(`
-      CREATE TABLE IF NOT EXISTS batch_approvals (
+      CREATE TABLE shade_approval_logs (
         approval_id SERIAL PRIMARY KEY,
-        batch_number VARCHAR(50) NOT NULL,
-        inspection_id INT NOT NULL REFERENCES qc_inspections(inspection_id) ON DELETE CASCADE,
-        status VARCHAR(20) DEFAULT 'pending',
+        lot_id INT NOT NULL REFERENCES lots(lot_id),
+        shade_id INT NOT NULL REFERENCES shades(shade_id),
+        measured_l DECIMAL(8,4), measured_a DECIMAL(8,4), measured_b DECIMAL(8,4),
+        delta_e DECIMAL(5,2),
+        tolerance DECIMAL(5,2),
+        result VARCHAR(20) NOT NULL,
         approved_by INT REFERENCES users(user_id),
-        approved_at TIMESTAMPTZ,
-        rejection_reason TEXT,
-        rework_instructions TEXT,
-        notes TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        sample_image_url VARCHAR(500),
+        created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // 25. Dispatch Notes
     await client.query(`
-      CREATE TABLE IF NOT EXISTS dispatch_notes (
-        dispatch_id SERIAL PRIMARY KEY,
-        dispatch_number VARCHAR(50) UNIQUE NOT NULL,
-        so_id INT NOT NULL REFERENCES sales_orders(so_id) ON DELETE CASCADE,
-        dispatch_date TIMESTAMPTZ DEFAULT NOW(),
-        vehicle_number VARCHAR(50),
-        driver_name VARCHAR(100),
-        driver_phone VARCHAR(20),
-        transporter VARCHAR(200),
-        tracking_number VARCHAR(100),
+      CREATE TABLE lab_test_results (
+        test_id SERIAL PRIMARY KEY,
+        lot_id INT NOT NULL REFERENCES lots(lot_id),
+        test_type VARCHAR(30) NOT NULL,
+        required_value VARCHAR(50),
+        actual_value VARCHAR(50),
+        uom VARCHAR(20),
+        result VARCHAR(10) DEFAULT 'PASS',
+        tested_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE grey_fabric_inventory (
+        grey_stock_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        lot_id INT REFERENCES lots(lot_id),
+        job_order_id INT REFERENCES job_orders(job_order_id),
+        ownership_type VARCHAR(20) NOT NULL,
+        party_id INT REFERENCES parties(party_id),
+        fabric_id INT REFERENCES fabrics(fabric_id),
+        qty_meters DECIMAL(12,3) NOT NULL,
+        qty_kg DECIMAL(12,3),
+        location VARCHAR(100),
+        inward_challan_no VARCHAR(50),
+        received_date DATE DEFAULT CURRENT_DATE
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE dye_chemical_stock_batches (
+        stock_batch_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        item_id INT NOT NULL REFERENCES dye_chemicals(item_id),
+        batch_lot_no VARCHAR(50),
+        qty_on_hand DECIMAL(12,4) NOT NULL,
+        uom VARCHAR(10) DEFAULT 'KG',
+        unit_cost DECIMAL(12,4) DEFAULT 0,
+        expiry_date DATE,
+        supplier_id INT REFERENCES parties(party_id),
+        warehouse_location VARCHAR(50),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE stock_movements (
+        movement_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        movement_type VARCHAR(30) NOT NULL,
+        item_category VARCHAR(20) NOT NULL,
+        item_id INT,
+        stock_batch_id INT,
+        reference_type VARCHAR(50),
+        reference_id INT,
+        qty DECIMAL(12,4) NOT NULL,
+        unit_cost DECIMAL(12,4) DEFAULT 0,
+        ownership_type VARCHAR(20),
+        notes TEXT,
+        created_by INT REFERENCES users(user_id),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE finished_goods_inventory (
+        fg_stock_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        lot_id INT NOT NULL REFERENCES lots(lot_id),
+        job_order_id INT REFERENCES job_orders(job_order_id),
+        fabric_id INT REFERENCES fabrics(fabric_id),
+        shade_id INT REFERENCES shades(shade_id),
+        quality_grade VARCHAR(5) DEFAULT 'A',
+        qty_meters DECIMAL(12,3) NOT NULL,
+        qty_kg DECIMAL(12,3),
+        ownership_type VARCHAR(20) DEFAULT 'CUSTOMER_OWNED',
+        location VARCHAR(100),
+        qc_inspection_id INT REFERENCES qc_inspections(inspection_id),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE packing_materials (
+        packing_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        item_code VARCHAR(30) NOT NULL,
+        item_name VARCHAR(200) NOT NULL,
+        uom VARCHAR(10) DEFAULT 'PIECE',
+        reorder_level DECIMAL(12,3) DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        UNIQUE(tenant_id, item_code)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE packing_stock (
+        stock_id SERIAL PRIMARY KEY,
+        packing_id INT NOT NULL REFERENCES packing_materials(packing_id),
+        qty_on_hand DECIMAL(12,3) NOT NULL,
+        unit_cost DECIMAL(12,2) DEFAULT 0,
+        location VARCHAR(50)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE reorder_alerts (
+        alert_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        item_id INT NOT NULL REFERENCES dye_chemicals(item_id),
+        current_stock DECIMAL(12,3),
+        reorder_level DECIMAL(12,3),
+        status VARCHAR(20) DEFAULT 'PENDING',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE purchase_orders (
+        po_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        po_number VARCHAR(50) NOT NULL,
+        supplier_id INT NOT NULL REFERENCES parties(party_id),
+        order_date DATE NOT NULL,
         expected_delivery_date DATE,
-        actual_delivery_date TIMESTAMPTZ,
-        delivery_status VARCHAR(50) DEFAULT 'dispatched',
-        notes TEXT,
-        created_by INT NOT NULL REFERENCES users(user_id),
+        status VARCHAR(30) DEFAULT 'DRAFT',
+        total_amount DECIMAL(15,2) DEFAULT 0,
+        tax_amount DECIMAL(15,2) DEFAULT 0,
+        net_amount DECIMAL(15,2) DEFAULT 0,
+        created_by INT REFERENCES users(user_id),
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        UNIQUE(tenant_id, po_number)
       );
     `);
 
-    // 26. Communication Logs
     await client.query(`
-      CREATE TABLE IF NOT EXISTS communication_logs (
+      CREATE TABLE po_items (
+        item_id SERIAL PRIMARY KEY,
+        po_id INT NOT NULL REFERENCES purchase_orders(po_id) ON DELETE CASCADE,
+        chemical_id INT NOT NULL REFERENCES dye_chemicals(item_id),
+        quantity DECIMAL(15,3) NOT NULL,
+        unit_price DECIMAL(15,2) NOT NULL,
+        tax_rate DECIMAL(5,2) DEFAULT 18,
+        received_quantity DECIMAL(15,3) DEFAULT 0
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE grn_records (
+        grn_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        grn_number VARCHAR(30) NOT NULL,
+        po_id INT REFERENCES purchase_orders(po_id),
+        supplier_id INT REFERENCES parties(party_id),
+        received_date DATE DEFAULT CURRENT_DATE,
+        total_amount DECIMAL(15,2) DEFAULT 0,
+        created_by INT REFERENCES users(user_id),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE dispatch_challans (
+        challan_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        challan_no VARCHAR(30) NOT NULL,
+        challan_type VARCHAR(30) DEFAULT 'DELIVERY_CHALLAN_JW',
+        job_order_id INT REFERENCES job_orders(job_order_id),
+        party_id INT NOT NULL REFERENCES parties(party_id),
+        dispatch_date TIMESTAMPTZ DEFAULT NOW(),
+        transporter_id INT REFERENCES parties(party_id),
+        vehicle_no VARCHAR(20),
+        lr_no VARCHAR(50), lr_date DATE,
+        place_of_supply CHAR(2) DEFAULT '24',
+        total_qty_meters DECIMAL(12,3) DEFAULT 0,
+        total_qty_kg DECIMAL(12,3) DEFAULT 0,
+        gst_section VARCHAR(20) DEFAULT '143',
+        status VARCHAR(20) DEFAULT 'DRAFT',
+        created_by INT REFERENCES users(user_id),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, challan_no)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE dispatch_challan_lines (
+        line_id SERIAL PRIMARY KEY,
+        challan_id INT NOT NULL REFERENCES dispatch_challans(challan_id) ON DELETE CASCADE,
+        lot_id INT NOT NULL REFERENCES lots(lot_id),
+        fg_stock_id INT REFERENCES finished_goods_inventory(fg_stock_id),
+        fabric_id INT REFERENCES fabrics(fabric_id),
+        shade_id INT REFERENCES shades(shade_id),
+        hsn_code VARCHAR(8),
+        qty_meters DECIMAL(12,3) NOT NULL,
+        qty_kg DECIMAL(12,3),
+        no_of_rolls INT DEFAULT 1
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE eway_bills (
+        eway_bill_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        challan_id INT REFERENCES dispatch_challans(challan_id),
+        ewb_no VARCHAR(20),
+        valid_upto TIMESTAMPTZ,
+        distance_km INT,
+        transport_mode VARCHAR(10) DEFAULT 'ROAD',
+        api_response JSONB,
+        status VARCHAR(20) DEFAULT 'GENERATED',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE return_materials (
+        return_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        original_challan_id INT REFERENCES dispatch_challans(challan_id),
+        party_id INT REFERENCES parties(party_id),
+        lot_id INT REFERENCES lots(lot_id),
+        qty_meters DECIMAL(12,3),
+        reason TEXT,
+        received_date DATE DEFAULT CURRENT_DATE,
+        status VARCHAR(20) DEFAULT 'RECEIVED'
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE gst_invoices (
+        invoice_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        invoice_no VARCHAR(30) NOT NULL,
+        invoice_type VARCHAR(30) DEFAULT 'JOB_WORK_TAX_INVOICE',
+        job_order_id INT REFERENCES job_orders(job_order_id),
+        party_id INT NOT NULL REFERENCES parties(party_id),
+        invoice_date DATE DEFAULT CURRENT_DATE,
+        supply_type VARCHAR(10) DEFAULT 'B2B',
+        place_of_supply CHAR(2) DEFAULT '24',
+        taxable_value DECIMAL(15,2) DEFAULT 0,
+        cgst_amount DECIMAL(15,2) DEFAULT 0,
+        sgst_amount DECIMAL(15,2) DEFAULT 0,
+        igst_amount DECIMAL(15,2) DEFAULT 0,
+        total_amount DECIMAL(15,2) DEFAULT 0,
+        irn VARCHAR(100),
+        status VARCHAR(20) DEFAULT 'DRAFT',
+        created_by INT REFERENCES users(user_id),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, invoice_no)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE gst_invoice_lines (
+        line_id SERIAL PRIMARY KEY,
+        invoice_id INT NOT NULL REFERENCES gst_invoices(invoice_id) ON DELETE CASCADE,
+        line_type VARCHAR(10) DEFAULT 'SERVICE',
+        hsn_sac VARCHAR(10) DEFAULT '9988',
+        description TEXT,
+        qty DECIMAL(12,3) DEFAULT 1,
+        rate DECIMAL(12,4) DEFAULT 0,
+        taxable_value DECIMAL(15,2) NOT NULL,
+        gst_rate DECIMAL(5,2) DEFAULT 18,
+        cgst DECIMAL(15,2) DEFAULT 0,
+        sgst DECIMAL(15,2) DEFAULT 0,
+        igst DECIMAL(15,2) DEFAULT 0
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE job_work_bills (
+        bill_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        job_order_id INT NOT NULL REFERENCES job_orders(job_order_id),
+        bill_no VARCHAR(30) NOT NULL,
+        processed_qty_meters DECIMAL(12,3) DEFAULT 0,
+        processed_qty_kg DECIMAL(12,3) DEFAULT 0,
+        rate DECIMAL(12,4) DEFAULT 0,
+        gross_amount DECIMAL(15,2) DEFAULT 0,
+        delay_penalty DECIMAL(15,2) DEFAULT 0,
+        quality_penalty DECIMAL(15,2) DEFAULT 0,
+        net_amount DECIMAL(15,2) DEFAULT 0,
+        invoice_id INT REFERENCES gst_invoices(invoice_id),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, bill_no)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE party_ledger (
+        ledger_entry_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        party_id INT NOT NULL REFERENCES parties(party_id),
+        entry_date DATE DEFAULT CURRENT_DATE,
+        voucher_type VARCHAR(20) NOT NULL,
+        reference_no VARCHAR(50),
+        debit_amount DECIMAL(15,2) DEFAULT 0,
+        credit_amount DECIMAL(15,2) DEFAULT 0,
+        balance DECIMAL(15,2) DEFAULT 0,
+        due_date DATE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE lot_cost_sheets (
+        cost_sheet_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        lot_id INT NOT NULL REFERENCES lots(lot_id),
+        recipe_cost DECIMAL(15,2) DEFAULT 0,
+        machine_hour_cost DECIMAL(15,2) DEFAULT 0,
+        labor_cost DECIMAL(15,2) DEFAULT 0,
+        overhead_cost DECIMAL(15,2) DEFAULT 0,
+        total_cost DECIMAL(15,2) DEFAULT 0,
+        billed_amount DECIMAL(15,2) DEFAULT 0,
+        profit_margin DECIMAL(15,2) DEFAULT 0,
+        profit_margin_pct DECIMAL(6,2) DEFAULT 0,
+        calculated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE purchase_invoices (
+        purchase_invoice_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        invoice_no VARCHAR(30) NOT NULL,
+        supplier_id INT REFERENCES parties(party_id),
+        grn_id INT REFERENCES grn_records(grn_id),
+        invoice_date DATE DEFAULT CURRENT_DATE,
+        taxable_value DECIMAL(15,2) DEFAULT 0,
+        cgst DECIMAL(15,2) DEFAULT 0, sgst DECIMAL(15,2) DEFAULT 0, igst DECIMAL(15,2) DEFAULT 0,
+        itc_eligible BOOLEAN DEFAULT TRUE,
+        itc_cgst DECIMAL(15,2) DEFAULT 0, itc_sgst DECIMAL(15,2) DEFAULT 0, itc_igst DECIMAL(15,2) DEFAULT 0,
+        total_amount DECIMAL(15,2) DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE communication_logs (
         id SERIAL PRIMARY KEY,
-        customer_id INT REFERENCES customers(customer_id) ON DELETE CASCADE,
-        order_id INT REFERENCES sales_orders(so_id) ON DELETE SET NULL,
-        channel VARCHAR(20) NOT NULL,
-        recipient VARCHAR(50) NOT NULL,
-        message TEXT NOT NULL,
+        tenant_id UUID,
+        party_id INT REFERENCES parties(party_id),
+        job_order_id INT REFERENCES job_orders(job_order_id),
+        channel VARCHAR(20) DEFAULT 'WhatsApp',
+        recipient VARCHAR(50),
+        message TEXT,
         status VARCHAR(20) DEFAULT 'Sent',
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    console.log('✓ Database tables verified.');
-
-    // Seed default Roles
-    console.log('Seeding initial roles...');
     await client.query(`
-      INSERT INTO roles (role_id, role_name, permissions, description)
-      VALUES 
-        (1, 'Admin', '*', 'Administrator with full system permissions'),
-        (2, 'Manager', 'view,edit,create', 'Manager with operational controls'),
-        (3, 'Operator', 'view,log_production', 'Shopfloor operator for machines and logs')
-      ON CONFLICT (role_id) DO NOTHING;
+      CREATE INDEX idx_parties_tenant_type ON parties(tenant_id, party_type);
+      CREATE INDEX idx_lots_job ON lots(job_order_id);
+      CREATE INDEX idx_lots_barcode ON lots(barcode_value);
+      CREATE INDEX idx_lot_genealogy_parent ON lot_genealogy(parent_lot_id);
+      CREATE INDEX idx_lot_stages_lot ON lot_process_stages(lot_id, sequence_no);
+      CREATE INDEX idx_batch_runs_lot ON batch_runs(lot_id);
+      CREATE INDEX idx_party_ledger_party ON party_ledger(party_id, entry_date);
+      CREATE INDEX idx_job_orders_status ON job_orders(tenant_id, status);
     `);
 
-    // Seed default Users
-    console.log('Seeding default users...');
+    console.log('Schema created. Seeding data...');
+
+    await client.query(`
+      INSERT INTO tenants (tenant_id, mill_name, gstin, pan, state_code, address, city, pincode)
+      VALUES ($1, 'Shree Krishna Dyeing & Finishing Mill', '24AABCS1234A1Z5', 'AABCS1234A', '24',
+              'Palsana GIDC, Block 12, Surat', 'Surat', '394305')
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    const roles = [
+      [1, 'ADMIN', 'Administrator', '{"all": true}'],
+      [2, 'PRODUCTION_MANAGER', 'Production Manager', '{"production": true, "masters": true, "jobs": true}'],
+      [3, 'MACHINE_OPERATOR', 'Machine Operator', '{"shop_floor": true}'],
+      [4, 'QC_INSPECTOR', 'QC Inspector', '{"quality": true}'],
+      [5, 'ACCOUNTS', 'Accounts', '{"finance": true, "dispatch": true}'],
+      [6, 'DISPATCH', 'Dispatch', '{"dispatch": true}'],
+      [7, 'PARTY_PORTAL', 'Party Portal', '{"portal": true}'],
+    ];
+    for (const [id, code, name, perms] of roles) {
+      await client.query(
+        `INSERT INTO roles (role_id, tenant_id, role_code, role_name, permissions) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+        [id, DEFAULT_TENANT, code, name, perms]
+      );
+    }
+
     const adminHash = bcrypt.hashSync('admin123', 10);
     const managerHash = bcrypt.hashSync('manager123', 10);
     const operatorHash = bcrypt.hashSync('operator123', 10);
+    const qcHash = bcrypt.hashSync('qc123', 10);
 
     await client.query(`
-      INSERT INTO users (user_id, username, email, password_hash, full_name, role_id)
+      INSERT INTO users (user_id, tenant_id, username, email, password_hash, full_name, role_id, employee_code)
       VALUES
-        (1, 'admin', 'admin@sarvuttam.com', $1, 'Admin Administrator', 1),
-        (2, 'manager1', 'manager@sarvuttam.com', $2, 'Manager Operations', 2),
-        (3, 'operator1', 'operator@sarvuttam.com', $3, 'Machine Operator 1', 3)
-      ON CONFLICT (user_id) DO NOTHING;
-    `, [adminHash, managerHash, operatorHash]);
+        (1, $1, 'admin', 'admin@skdyeing.com', $2, 'Mill Administrator', 1, 'EMP-001'),
+        (2, $1, 'prod_mgr', 'prod@skdyeing.com', $3, 'Production Manager', 2, 'EMP-002'),
+        (3, $1, 'operator1', 'op1@skdyeing.com', $4, 'Jet Dyeing Operator', 3, 'EMP-003'),
+        (4, $1, 'qc1', 'qc@skdyeing.com', $5, 'QC Inspector', 4, 'EMP-004')
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT, adminHash, managerHash, operatorHash, qcHash]);
 
-    // Seed default Defect Types
-    console.log('Seeding defect types...');
     await client.query(`
-      INSERT INTO defect_types (type_id, code, name, category, description, threshold_percentage, severity)
+      INSERT INTO parties (party_id, tenant_id, party_code, party_type, legal_name, trade_name, gstin, state_code, contact_person, mobile, credit_limit, credit_period_days, is_job_work_client)
       VALUES
-        (1, 'DEF-001', 'Weft Bar', 'Weaving', 'Shade variation across the width due to yarn count change', 2.00, 'major'),
-        (2, 'DEF-002', 'Dye Spot', 'Dyeing', 'Concentrated spots of dye on fabric surface', 1.00, 'major'),
-        (3, 'DEF-003', 'Stain', 'Finishing', 'Oil, grease or chemical stains', 1.50, 'critical'),
-        (4, 'DEF-004', 'Missing Pick', 'Weaving', 'Missing weft yarn leading to thread gaps', 3.00, 'minor'),
-        (5, 'DEF-005', 'Uneven Width', 'Finishing', 'Variance in fabric width beyond tolerances', 2.50, 'minor')
-      ON CONFLICT (type_id) DO NOTHING;
+        (1, $1, 'TRD-001', 'TRADER_MERCHANT', 'Sarv Uttam Fabrics Pvt. Ltd.', 'Sarv Uttam', '24AAACS9999A1Z1', '24', 'Ramesh Kumar', '9876543210', 1000000, 30, TRUE),
+        (2, $1, 'TRD-002', 'TRADER_MERCHANT', 'Gopal Ji Textiles', 'Gopal Ji', '24AAACT1111A1Z2', '24', 'Gopal Sharma', '9123456789', 500000, 15, TRUE),
+        (3, $1, 'SUP-001', 'SUPPLIER', 'Gujarat Chemicals Co.', 'GujChem', '24AAACG4444A1Z6', '24', 'Anil Mehta', '9333224466', 0, 0, FALSE),
+        (4, $1, 'TRN-001', 'TRANSPORTER', 'Surat Road Carriers', 'SRC Logistics', '24AAACR5555A1Z7', '24', 'Mahesh Patel', '9825112233', 0, 0, FALSE),
+        (5, $1, 'BRK-001', 'BROKER_AGENT', 'Textile Brokers Surat', 'TBS', '24AAACB6666A1Z8', '24', 'Suresh Shah', '9898012345', 0, 0, FALSE)
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO fabrics (fabric_id, tenant_id, fabric_code, fabric_name, fabric_category, construction_warp, construction_weft, width_inches, finished_width_inches, gsm, blend_composition, hsn_code, default_shrinkage_pct)
+      VALUES
+        (1, $1, 'FAB-PCH-60', 'Polyester Chiffon 60 GSM', 'WOVEN', '75D/144F', '75D/144F', 58, 57, 60, '{"polyester": 100}', '5407', 8.5),
+        (2, $1, 'FAB-CTN-120', 'Cotton Sheeting 120 GSM', 'WOVEN', '40s', '40s', 60, 58, 120, '{"cotton": 100}', '5208', 6.0),
+        (3, $1, 'FAB-TC-180', 'Poly-Cotton Twill 65/35', 'WOVEN', '30s', '30s', 58, 57, 180, '{"polyester": 65, "cotton": 35}', '5516', 7.5)
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO shades (shade_id, tenant_id, shade_card_no, shade_name, lab_l, lab_a, lab_b, delta_e_tolerance, customer_party_id)
+      VALUES
+        (1, $1, 'SC-NAVY-447', 'Navy Blue RFD-447', 25.5, 5.2, -35.8, 1.0, 1),
+        (2, $1, 'SC-BLACK-001', 'Jet Black', 15.0, 0.5, -2.0, 0.8, 1),
+        (3, $1, 'SC-RED-H3B', 'Reactive Red H-3B', 45.2, 65.3, 35.1, 1.2, 2)
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO dye_chemicals (item_id, tenant_id, item_code, item_name, category, uom, hsn_code, gst_rate_pct, reorder_level, reorder_qty, preferred_supplier_id)
+      VALUES
+        (1, $1, 'DYE-RR-H3B', 'Reactive Red H-3B', 'REACTIVE_DYE', 'KG', '3204', 18, 25, 100, 3),
+        (2, $1, 'DYE-NB-447', 'Disperse Navy Blue 447', 'DISPERSE_DYE', 'KG', '3204', 18, 20, 80, 3),
+        (3, $1, 'CHM-SALT', 'Glauber Salt', 'SALT', 'KG', '2501', 5, 500, 2000, 3),
+        (4, $1, 'CHM-SODA', 'Soda Ash Light', 'SODA_ASH', 'KG', '2836', 18, 200, 1000, 3),
+        (5, $1, 'CHM-SOFT', 'Cationic Softener', 'SOFTENER', 'KG', '3402', 18, 50, 200, 3),
+        (6, $1, 'CHM-CAUSTIC', 'Caustic Soda Flakes', 'CAUSTIC_SODA', 'KG', '2815', 18, 150, 500, 3)
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO machines (machine_id, tenant_id, machine_code, machine_name, machine_type, capacity_value, capacity_uom, current_status, location, hourly_rate)
+      VALUES
+        (1, $1, 'JIG-01', 'Sclavos Jigger #1', 'JIGGER', 500, 'KG_PER_BATCH', 'IDLE', 'Dyeing Hall A', 850),
+        (2, $1, 'JET-01', 'Thies Soft Flow Jet #1', 'SOFT_FLOW', 300, 'KG_PER_BATCH', 'IDLE', 'Dyeing Hall B', 1200),
+        (3, $1, 'JET-02', 'Thies Jet Dyeing #2', 'JET_DYEING', 250, 'KG_PER_BATCH', 'IDLE', 'Dyeing Hall B', 1100),
+        (4, $1, 'STN-01', 'Monforts Stenter Line 1', 'STENTER', 2000, 'METERS_PER_HOUR', 'IDLE', 'Finishing Hall', 650),
+        (5, $1, 'PAD-01', 'Padding Mangle #1', 'PADDING_MANGLE', 1500, 'METERS_PER_HOUR', 'IDLE', 'Finishing Hall', 500),
+        (6, $1, 'SNG-01', 'Singeing Machine', 'SINGEING', 3000, 'METERS_PER_HOUR', 'IDLE', 'Pre-Treatment', 400)
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO process_templates (template_id, tenant_id, template_name, fabric_id, process_type)
+      VALUES
+        (1, $1, 'Polyester Disperse Full Process', 1, 'FULL_PROCESS'),
+        (2, $1, 'Cotton Reactive Dyeing Only', 2, 'DYEING_ONLY'),
+        (3, $1, 'TC Blend Dyeing + Finishing', 3, 'DYEING_FINISHING')
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO process_template_steps (template_id, sequence_no, process_name, machine_type, standard_time_mins, expected_loss_pct, is_qc_checkpoint)
+      VALUES
+        (1, 1, 'Singeing', 'SINGEING', 30, 0.5, FALSE),
+        (1, 2, 'Desizing & Scouring', 'WASHING', 45, 1.0, FALSE),
+        (1, 3, 'Dyeing (Disperse)', 'JET_DYEING', 180, 2.0, TRUE),
+        (1, 4, 'Washing & Reduction Clear', 'WASHING', 60, 1.5, FALSE),
+        (1, 5, 'Stenter Drying & Setting', 'STENTER', 45, 3.0, FALSE),
+        (1, 6, 'Soft Finish (Padding)', 'PADDING_MANGLE', 30, 0.5, FALSE),
+        (1, 7, 'Final Inspection & Folding', 'INSPECTION_TABLE', 20, 0.5, TRUE),
+        (2, 1, 'Desizing', 'WASHING', 40, 1.0, FALSE),
+        (2, 2, 'Reactive Dyeing', 'JIGGER', 240, 2.5, TRUE),
+        (2, 3, 'Soaping & Washing', 'WASHING', 60, 1.0, FALSE),
+        (3, 1, 'Singeing', 'SINGEING', 30, 0.5, FALSE),
+        (3, 2, 'Dyeing', 'SOFT_FLOW', 200, 2.0, TRUE),
+        (3, 3, 'Stenter Finishing', 'STENTER', 50, 3.5, TRUE)
+      ON CONFLICT DO NOTHING;
     `);
 
-    // Seed default Materials (Chemicals, Yarns, Packaging)
-    console.log('Seeding default materials...');
     await client.query(`
-      INSERT INTO materials (material_id, material_code, name, description, category, unit, reorder_level, reorder_quantity, unit_cost)
+      INSERT INTO recipes (recipe_id, tenant_id, recipe_code, shade_id, fabric_id, machine_type, liquor_ratio, process_temp_celsius, cycle_time_mins, ph_target, is_approved)
       VALUES
-        (1, 'MAT-YRN-01', 'Cotton Yarn 40s', 'High quality combed cotton yarn', 'raw_material', 'kg', 500.0, 1000.0, 240.00),
-        (2, 'MAT-YRN-02', 'Polyester Yarn 150D', 'Texturized polyester yarn', 'raw_material', 'kg', 300.0, 800.0, 110.00),
-        (3, 'MAT-CHM-01', 'Reactive Dye Red H-3B', 'Industrial fabric reactive dye', 'consumable', 'kg', 50.0, 150.0, 480.00),
-        (4, 'MAT-CHM-02', 'Soda Ash', 'Dyeing chemical auxiliary', 'consumable', 'kg', 200.0, 500.0, 32.00),
-        (5, 'MAT-PKG-01', 'Cardboard Rolls', 'Tubes for rolling finished fabric', 'consumable', 'piece', 100.0, 300.0, 45.00)
-      ON CONFLICT (material_id) DO NOTHING;
+        (1, $1, 'RCP-NAVY-PCH-JET', 1, 1, 'JET_DYEING', 8, 130, 180, 4.5, TRUE),
+        (2, $1, 'RCP-RED-CTN-JIG', 3, 2, 'JIGGER', 10, 60, 240, 10.5, TRUE),
+        (3, $1, 'RCP-BLK-TC-SF', 2, 3, 'SOFT_FLOW', 12, 135, 200, 4.0, TRUE)
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO recipe_lines (recipe_id, item_id, dosage_pct, sequence_no, is_critical)
+      VALUES
+        (1, 3, 40.0, 1, FALSE), (1, 2, 2.5, 2, TRUE), (1, 5, 1.0, 3, FALSE),
+        (2, 3, 50.0, 1, FALSE), (2, 1, 3.0, 2, TRUE), (2, 4, 15.0, 3, TRUE), (2, 5, 0.8, 4, FALSE),
+        (3, 3, 35.0, 1, FALSE), (3, 2, 4.0, 2, TRUE), (3, 6, 2.0, 3, FALSE)
+      ON CONFLICT DO NOTHING;
     `);
 
-    // Seed default Finished Products (Fabrics)
-    console.log('Seeding default products...');
     await client.query(`
-      INSERT INTO products (product_id, product_code, name, description, category, unit, standard_cost, selling_price, lead_time_days)
+      INSERT INTO dye_chemical_stock_batches (tenant_id, item_id, batch_lot_no, qty_on_hand, unit_cost, expiry_date, supplier_id, warehouse_location)
       VALUES
-        (1, 'PRD-COT-01', 'Premium Cotton Sheeting', '100% Cotton combed sheeting fabric, 120 GSM', 'finished_goods', 'meter', 160.00, 220.00, 7),
-        (2, 'PRD-POLY-01', 'Polyester Satin', 'Heavy sheen polyester satin fabric, 80 GSM', 'finished_goods', 'meter', 75.00, 115.00, 5),
-        (3, 'PRD-BLD-01', 'TC Twill 65/35', 'Polyester cotton blend twill fabric for uniforms', 'finished_goods', 'meter', 110.00, 155.00, 10)
-      ON CONFLICT (product_id) DO NOTHING;
+        ($1, 1, 'BATCH-RR-2026-A', 85.5, 480, '2027-06-01', 3, 'Chem Store A'),
+        ($1, 2, 'BATCH-NB-2026-A', 62.0, 520, '2027-05-15', 3, 'Chem Store A'),
+        ($1, 3, 'BATCH-SALT-2026', 2500, 8, '2028-01-01', 3, 'Chem Store B'),
+        ($1, 4, 'BATCH-SODA-2026', 800, 32, '2027-12-01', 3, 'Chem Store B'),
+        ($1, 5, 'BATCH-SOFT-2026', 120, 145, '2027-08-01', 3, 'Chem Store A'),
+        ($1, 6, 'BATCH-CAU-2026', 450, 55, '2027-10-01', 3, 'Chem Store B')
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO packing_materials (tenant_id, item_code, item_name, uom, reorder_level)
+      VALUES ($1, 'PKG-ROLL', 'Cardboard Roll Tubes', 'PIECE', 100), ($1, 'PKG-POLY', 'Poly Bags Large', 'PIECE', 500), ($1, 'PKG-CTN', 'Carton Box 24"', 'PIECE', 200)
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO packing_stock (packing_id, qty_on_hand, unit_cost, location)
+      SELECT packing_id, 350, 45, 'Packing Store' FROM packing_materials WHERE item_code = 'PKG-ROLL';
+      INSERT INTO packing_stock (packing_id, qty_on_hand, unit_cost, location)
+      SELECT packing_id, 1200, 8, 'Packing Store' FROM packing_materials WHERE item_code = 'PKG-POLY';
     `);
 
-    // Seed default Machines
-    console.log('Seeding default machines...');
-    await client.query(`
-      INSERT INTO machines (machine_id, machine_code, name, machine_type, capacity, capacity_unit, status, location)
-      VALUES
-        (1, 'MAC-WVE-01', 'Tsudakoma Air Jet Loom', 'Weaving', 1200.0, 'meter/day', 'available', 'Weaving Hall A'),
-        (2, 'MAC-WVE-02', 'Picanol Rapier Loom', 'Weaving', 800.0, 'meter/day', 'in_use', 'Weaving Hall A'),
-        (3, 'MAC-DYE-01', 'Sclavos Jigger Dyeing Machine', 'Dyeing', 500.0, 'kg/batch', 'available', 'Dyeing Section B'),
-        (4, 'MAC-FIN-01', 'Monforts Stenter Machine', 'Finishing', 2000.0, 'meter/hour', 'maintenance', 'Finishing Hall C')
-      ON CONFLICT (machine_id) DO NOTHING;
-    `);
-
-    // Seed default Customers (Surat Traders - Sarv Uttam & others)
-    console.log('Seeding customers directory...');
-    await client.query(`
-      INSERT INTO customers (customer_id, customer_code, name, contact_person, email, phone, address, city, state, tax_id, credit_limit, credit_days, region)
-      VALUES
-        (1, 'CUST-SU01', 'Sarv Uttam Fabrics Pvt. Ltd.', 'Ramesh Kumar', 'ramesh@sarvuttamfabrics.com', '9876543210', 'Palsana Block 295, Surat', 'Surat', 'Gujarat', '24AAACS9999A1Z1', 1000000.00, 30, 'Surat Industrial Area'),
-        (2, 'CUST-ST01', 'Gopal Ji Textiles', 'Gopal Sharma', 'gopal@gopaljitextiles.com', '9123456789', 'Millennium Textile Market, Ring Road', 'Surat', 'Gujarat', '24AAACT1111A1Z2', 500000.00, 15, 'Surat Ring Road'),
-        (3, 'CUST-ST02', 'Krishna Apparels', 'Vijay Shah', 'vijay@krishnaapparels.com', '9988776655', 'Sangini Textile Hub, Palsana', 'Surat', 'Gujarat', '24AAACK2222A1Z3', 750000.00, 45, 'Surat Palsana Road')
-      ON CONFLICT (customer_id) DO NOTHING;
-    `);
-
-    // Seed default Suppliers
-    console.log('Seeding suppliers...');
-    await client.query(`
-      INSERT INTO suppliers (supplier_id, supplier_code, name, contact_person, email, phone, address, city, state, tax_id, status)
-      VALUES
-        (1, 'SUP-YRN-01', 'Surat Yarn Spinners Ltd.', 'Mohit Patel', 'mohit@suratyarn.com', '9555123456', 'Palsana GIDC Phase 2', 'Surat', 'Gujarat', '24AAACS5555A1Z5', 'active'),
-        (2, 'SUP-CHM-01', 'Gujarat Chemicals Co.', 'Anil Mehta', 'anil@gujchem.com', '9333224466', 'Vapi Industrial Estate', 'Vapi', 'Gujarat', '24AAACG4444A1Z6', 'active')
-      ON CONFLICT (supplier_id) DO NOTHING;
-    `);
-
-    console.log('✓ Seeding database complete.');
+    console.log('✓ Dyeing mill ERP schema initialized and seeded.');
   } catch (err) {
-    console.error('Database migration/seeding failed:', err.message);
+    console.error('Migration failed:', err);
+    process.exit(1);
   } finally {
     await client.end();
-    console.log('Database connection closed.');
   }
 }
 
