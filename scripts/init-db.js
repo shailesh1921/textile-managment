@@ -29,7 +29,8 @@ async function run() {
         lot_process_stages, lot_genealogy, lots, job_orders,
         recipe_lines, recipes, process_template_steps, process_templates,
         dye_chemicals, shades, fabrics, parties,
-        audit_logs, users, roles, tenants, machines
+        audit_logs, users, roles, tenants, machines,
+        rate_master, greige_grn
       CASCADE;
     `);
 
@@ -142,6 +143,46 @@ async function run() {
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         UNIQUE(tenant_id, fabric_code)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE rate_master (
+        rate_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        party_id INT REFERENCES parties(party_id),
+        fabric_id INT REFERENCES fabrics(fabric_id),
+        process_name VARCHAR(80) NOT NULL,
+        rate_per_meter DECIMAL(12,4) DEFAULT 0,
+        rate_per_kg DECIMAL(12,4) DEFAULT 0,
+        slab_min_qty DECIMAL(12,3) DEFAULT 0,
+        slab_max_qty DECIMAL(12,3) DEFAULT 99999999.99,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, party_id, fabric_id, process_name, slab_min_qty)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE greige_grn (
+        grn_id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+        grn_no VARCHAR(30) NOT NULL,
+        party_id INT NOT NULL REFERENCES parties(party_id),
+        fabric_id INT NOT NULL REFERENCES fabrics(fabric_id),
+        inward_date TIMESTAMPTZ DEFAULT NOW(),
+        challan_no VARCHAR(50),
+        challan_meters DECIMAL(12,3),
+        challan_kg DECIMAL(12,3),
+        actual_meters DECIMAL(12,3) NOT NULL,
+        actual_kg DECIMAL(12,3) NOT NULL,
+        discrepancy_meters DECIMAL(12,3) GENERATED ALWAYS AS (actual_meters - challan_meters) STORED,
+        discrepancy_kg DECIMAL(12,3) GENERATED ALWAYS AS (actual_kg - challan_kg) STORED,
+        discrepancy_flagged BOOLEAN DEFAULT FALSE,
+        remarks TEXT,
+        created_by INT REFERENCES users(user_id),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, grn_no)
       );
     `);
 
@@ -993,6 +1034,24 @@ async function run() {
       INSERT INTO packing_stock (packing_id, qty_on_hand, unit_cost, location)
       SELECT packing_id, 1200, 8, 'Packing Store' FROM packing_materials WHERE item_code = 'PKG-POLY';
     `);
+
+    await client.query(`
+      INSERT INTO rate_master (tenant_id, process_name, rate_per_meter, rate_per_kg)
+      VALUES
+        ($1, 'Dyeing (Reactive)', 0, 18.50),
+        ($1, 'Dyeing (Disperse)', 0, 22.00),
+        ($1, 'Stenter Finishing', 4.50, 0),
+        ($1, 'Singeing & Desizing', 2.00, 0)
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
+
+    await client.query(`
+      INSERT INTO greige_grn (tenant_id, grn_no, party_id, fabric_id, challan_no, challan_meters, actual_meters, actual_kg, discrepancy_flagged)
+      VALUES
+        ($1, 'GRN-2026-001', 1, 1, 'CH-9921', 5000, 4980, 595, TRUE),
+        ($1, 'GRN-2026-002', 2, 2, 'CH-8833', 10000, 10000, 1800, FALSE)
+      ON CONFLICT DO NOTHING;
+    `, [DEFAULT_TENANT]);
 
     console.log('✓ Dyeing mill ERP schema initialized and seeded.');
   } catch (err) {

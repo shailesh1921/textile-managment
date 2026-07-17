@@ -10,7 +10,16 @@ export default function JobOrders() {
   const [shades, setShades] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [activeTab, setActiveTab] = useState('ALL');
+  const [moduleTab, setModuleTab] = useState('ORDERS'); // 'ORDERS' or 'GRN'
   
+  const [grns, setGrns] = useState([]);
+  const [isGrnModalOpen, setIsGrnModalOpen] = useState(false);
+  const [grnForm, setGrnForm] = useState({
+    grn_no: '', party_id: '', fabric_id: '', challan_no: '',
+    challan_meters: '', challan_kg: '', actual_meters: '', actual_kg: '',
+    discrepancy_flagged: false, remarks: ''
+  });
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -49,6 +58,8 @@ export default function JobOrders() {
       setShades(shds || []);
       const tmps = await api.get('/api/v1/process-templates').catch(() => []);
       setTemplates(tmps || []);
+      const g = await api.get('/api/v1/grns').catch(() => []);
+      setGrns(g || []);
     } catch (err) {
       console.error(err);
     }
@@ -101,6 +112,30 @@ export default function JobOrders() {
     }
   };
 
+  const handleCreateGrn = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/grns', {
+        ...grnForm,
+        party_id: parseInt(grnForm.party_id),
+        fabric_id: parseInt(grnForm.fabric_id),
+        challan_meters: parseFloat(grnForm.challan_meters || 0),
+        challan_kg: parseFloat(grnForm.challan_kg || 0),
+        actual_meters: parseFloat(grnForm.actual_meters || 0),
+        actual_kg: parseFloat(grnForm.actual_kg || 0),
+      });
+      setIsGrnModalOpen(false);
+      setGrnForm({
+        grn_no: '', party_id: '', fabric_id: '', challan_no: '',
+        challan_meters: '', challan_kg: '', actual_meters: '', actual_kg: '',
+        discrepancy_flagged: false, remarks: ''
+      });
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleConfirmOrder = async (orderId) => {
     try {
       await api.post(`/api/v1/job-orders/${orderId}/confirm`);
@@ -130,25 +165,32 @@ export default function JobOrders() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Tabs and Actions */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div className="flex gap-2 border-b border-slate-200">
-          {['ALL', 'PENDING', 'IN_PROCESS', 'COMPLETED'].map(t => (
-            <button
-              key={t}
-              onClick={() => setActiveTab(t)}
-              className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
-                activeTab === t ? 'border-emerald-600 text-emerald-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {t.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-        <Button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-1.5 bg-emerald-600">
-          <Plus size={16} /> New Job Order
-        </Button>
+      {/* Top Level Module Tabs */}
+      <div className="flex gap-2">
+        <button onClick={() => setModuleTab('ORDERS')} className={`px-4 py-2 text-sm font-semibold rounded-lg ${moduleTab === 'ORDERS' ? 'bg-emerald-600 text-white' : 'bg-white border text-slate-600'}`}>Job Orders</button>
+        <button onClick={() => setModuleTab('GRN')} className={`px-4 py-2 text-sm font-semibold rounded-lg ${moduleTab === 'GRN' ? 'bg-emerald-600 text-white' : 'bg-white border text-slate-600'}`}>GRN Inwarding</button>
       </div>
+
+      {moduleTab === 'ORDERS' && (
+        <>
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div className="flex gap-2 border-b border-slate-200">
+              {['ALL', 'PENDING', 'IN_PROCESS', 'COMPLETED'].map(t => (
+                <button
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
+                    activeTab === t ? 'border-emerald-600 text-emerald-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {t.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+            <Button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-1.5 bg-emerald-600">
+              <Plus size={16} /> New Job Order
+            </Button>
+          </div>
 
       {/* Orders Table */}
       <Card title={`${activeTab.replace('_', ' ')} Job Orders`}>
@@ -206,8 +248,95 @@ export default function JobOrders() {
           )}
         </Table>
       </Card>
+      </>
+      )}
 
-      {/* Create Order Modal */}
+      {moduleTab === 'GRN' && (
+        <>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-bold text-slate-800">Greige GRN Inwarding</h2>
+            <Button onClick={() => setIsGrnModalOpen(true)} className="flex items-center gap-1.5 bg-emerald-600">
+              <Plus size={16} /> New GRN Entry
+            </Button>
+          </div>
+          <Card>
+            <Table headers={['GRN No', 'Date', 'Party', 'Fabric', 'Challan Mtrs', 'Actual Mtrs', 'Discrepancy (M)', 'Status']}>
+              {grns.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-10 text-center text-slate-400">No GRN records found.</td>
+                </tr>
+              ) : (
+                grns.map(g => (
+                  <tr key={g.grn_id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3 font-mono font-bold">{g.grn_no}</td>
+                    <td className="px-6 py-3 text-sm">{new Date(g.inward_date).toLocaleDateString()}</td>
+                    <td className="px-6 py-3 font-semibold">{g.party_name}</td>
+                    <td className="px-6 py-3 text-sm">{g.fabric_name}</td>
+                    <td className="px-6 py-3 text-slate-500">{parseFloat(g.challan_meters)}</td>
+                    <td className="px-6 py-3 font-bold">{parseFloat(g.actual_meters)}</td>
+                    <td className="px-6 py-3 font-mono">
+                      {parseFloat(g.discrepancy_meters) < 0 ? (
+                        <span className="text-rose-600 font-bold">{parseFloat(g.discrepancy_meters)}</span>
+                      ) : (
+                        <span className="text-emerald-600 font-bold">+{parseFloat(g.discrepancy_meters)}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-3">
+                      <Badge status={g.discrepancy_flagged ? 'cancelled' : 'confirmed'}>
+                        {g.discrepancy_flagged ? 'Flagged' : 'OK'}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </Table>
+          </Card>
+        </>
+      )}
+
+      {/* GRN Create Modal */}
+      <Modal isOpen={isGrnModalOpen} onClose={() => setIsGrnModalOpen(false)} title="Create GRN (Greige Fabric Receipt)" className="max-w-3xl">
+        <form onSubmit={handleCreateGrn} className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="GRN No" value={grnForm.grn_no} onChange={e => setGrnForm({...grnForm, grn_no: e.target.value})} required />
+            <Input label="Challan No" value={grnForm.challan_no} onChange={e => setGrnForm({...grnForm, challan_no: e.target.value})} required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Party (Customer/Supplier)" value={grnForm.party_id} onChange={e => setGrnForm({...grnForm, party_id: e.target.value})} options={[{value:'',label:'Select Party'}, ...parties.map(p=>({value:p.party_id,label:p.trade_name}))]} required />
+            <Select label="Fabric" value={grnForm.fabric_id} onChange={e => setGrnForm({...grnForm, fabric_id: e.target.value})} options={[{value:'',label:'Select Fabric'}, ...fabrics.map(f=>({value:f.fabric_id,label:f.fabric_name}))]} required />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-6 mt-2">
+            <div className="p-4 bg-slate-50 border rounded-lg">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Challan Details</h3>
+              <div className="flex flex-col gap-3">
+                <Input label="Challan Meters" type="number" step="0.01" value={grnForm.challan_meters} onChange={e => setGrnForm({...grnForm, challan_meters: e.target.value})} required />
+                <Input label="Challan KG" type="number" step="0.01" value={grnForm.challan_kg} onChange={e => setGrnForm({...grnForm, challan_kg: e.target.value})} />
+              </div>
+            </div>
+            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
+              <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-3">Actual Received</h3>
+              <div className="flex flex-col gap-3">
+                <Input label="Actual Meters" type="number" step="0.01" value={grnForm.actual_meters} onChange={e => setGrnForm({...grnForm, actual_meters: e.target.value})} required />
+                <Input label="Actual KG" type="number" step="0.01" value={grnForm.actual_kg} onChange={e => setGrnForm({...grnForm, actual_kg: e.target.value})} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-2">
+            <input type="checkbox" id="flag" checked={grnForm.discrepancy_flagged} onChange={e => setGrnForm({...grnForm, discrepancy_flagged: e.target.checked})} className="w-4 h-4 text-emerald-600" />
+            <label htmlFor="flag" className="text-sm font-semibold text-rose-600">Flag for Discrepancy (Hold Payment / Job)</label>
+          </div>
+          <Input label="Remarks" value={grnForm.remarks} onChange={e => setGrnForm({...grnForm, remarks: e.target.value})} />
+
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button variant="secondary" onClick={() => setIsGrnModalOpen(false)}>Cancel</Button>
+            <Button type="submit">Save GRN</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Create Job Order Modal */}
       <Modal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="Create New Job Order / Work Lot" className="max-w-2xl">
         <form onSubmit={handleCreate} className="flex flex-col gap-4 text-xs">
           <div className="grid grid-cols-2 gap-4">

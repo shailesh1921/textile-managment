@@ -127,4 +127,17 @@ router.get('/defect-codes', authenticateToken, async (req, res) => {
   ]);
 });
 
+router.get('/defect-codes', authenticateToken, async (req, res) => {
+  // Hardcoded for now based on standard defects
+  res.json([
+    { defect_code: 'COLOR_PATCH', defect_name: 'Color Patch / Spot' },
+    { defect_code: 'CREASE_MARK', defect_name: 'Crease Mark' },
+    { defect_code: 'SHADE_BAND', defect_name: 'Shade Band / Variation' },
+    { defect_code: 'STAINING', defect_name: 'Staining / Oil Marks' },
+    { defect_code: 'HOLE', defect_name: 'Hole / Tear' },
+    { defect_code: 'BOWING', defect_name: 'Bowing / Skewing' },
+    { defect_code: 'UNEVEN_WIDTH', defect_name: 'Uneven Width' },
+  ]);
+});
+
 module.exports = router;

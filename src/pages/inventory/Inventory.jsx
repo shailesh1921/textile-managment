@@ -34,14 +34,8 @@ export default function Inventory() {
       }
 
       // Check alerts
-      const reorderAlerts = await api.get('/api/v1/inventory/movements').then(() => {
-        // Mock matching alert check
-        return [
-          { item_name: 'Reactive Red H-3B', current_stock: '12 kg', reorder_level: '25 kg' },
-          { item_name: 'Disperse Navy Blue 447', current_stock: '8 kg', reorder_level: '20 kg' }
-        ];
-      });
-      setAlerts(reorderAlerts);
+      const dashboard = await api.get('/api/v1/inventory/stock-dashboard').catch(() => ({ alerts: [] }));
+      setAlerts(dashboard.alerts || []);
     } catch (err) {
       console.error(err);
     }
@@ -225,19 +219,22 @@ export default function Inventory() {
         </Card>
       )}
 
-      {/* Low Chemical alerts modal */}
-      <Modal isOpen={isAlertOpen} onClose={() => setIsAlertOpen(false)} title="Dye & Chemical Reorder warnings">
-        <div className="flex flex-col gap-4 text-xs font-semibold text-slate-700">
-          <p className="text-slate-400 leading-normal mb-2">The following chemical stocks have fallen below safe mill operating levels:</p>
-          <Table headers={['Chemical Item', 'Current Stock Level', 'Required safety level']}>
-            {alerts.map((a, index) => (
-              <tr key={index} className="bg-rose-50/10">
-                <td className="px-6 py-2.5 font-bold text-slate-800">{a.item_name}</td>
-                <td className="px-6 py-2.5 text-rose-600 font-extrabold">{a.current_stock}</td>
-                <td className="px-6 py-2.5 font-mono text-slate-400">{a.reorder_level}</td>
-              </tr>
-            ))}
-          </Table>
+      {/* Alerts Modal */}
+      <Modal isOpen={isAlertOpen} onClose={() => setIsAlertOpen(false)} title="Low Stock Alerts" className="max-w-xl">
+        <div className="flex flex-col gap-3">
+          {alerts.map((a, i) => (
+            <div key={i} className="flex justify-between items-center p-3 bg-rose-50 border border-rose-100 rounded-lg">
+              <div>
+                <div className="font-bold text-rose-800">{a.item_name} <span className="text-xs font-mono text-rose-600">({a.item_code})</span></div>
+                <div className="text-xs text-rose-600 font-semibold mt-1">Reorder Level: {a.reorder_level}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xl font-black text-rose-700">{parseFloat(a.current_stock)}</div>
+                <div className="text-[10px] uppercase font-bold text-rose-500">Current Stock</div>
+              </div>
+            </div>
+          ))}
+          {alerts.length === 0 && <div className="p-4 text-center text-slate-500">No alerts!</div>}
         </div>
       </Modal>
     </div>

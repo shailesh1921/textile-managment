@@ -11,6 +11,7 @@ const TABS = [
   { id: 'machines', label: 'Machines', icon: Cog },
   { id: 'recipes', label: 'Recipes', icon: BookOpen },
   { id: 'templates', label: 'Process Templates', icon: Settings },
+  { id: 'rates', label: 'Rate Master', icon: Cog },
 ];
 
 const PARTY_TYPES = [
@@ -72,20 +73,30 @@ export default function Masters() {
     gst_rate_pct: 18, reorder_level: 0, reorder_qty: 0, preferred_supplier_id: '',
     track_batch_expiry: true, shelf_life_days: 365
   });
+  const [rateForm, setRateForm] = useState({
+    party_id: '', fabric_id: '', process_name: 'Dyeing (Reactive)', rate_per_meter: 0, rate_per_kg: 0,
+    slab_min_qty: 0, slab_max_qty: 99999999.99
+  });
+  const [fabrics, setFabrics] = useState([]);
 
   const fetchData = async () => {
     try {
       const paths = {
         parties: '/api/v1/parties', fabrics: '/api/v1/fabrics', shades: '/api/v1/shades',
         chemicals: '/api/v1/dye-chemicals', machines: '/api/v1/machines',
-        recipes: '/api/v1/recipes', templates: '/api/v1/process-templates'
+        recipes: '/api/v1/recipes', templates: '/api/v1/process-templates',
+        rates: '/api/v1/rates'
       };
       const result = await api.get(paths[tab]);
       setData(result || []);
-      if (tab === 'shades' || tab === 'chemicals') {
+      if (tab === 'shades' || tab === 'chemicals' || tab === 'rates') {
         const p = await api.get('/api/v1/parties');
         setParties(p || []);
         setSuppliers((p || []).filter(x => x.party_type === 'SUPPLIER'));
+      }
+      if (tab === 'rates') {
+        const f = await api.get('/api/v1/fabrics');
+        setFabrics(f || []);
       }
     } catch (err) {
       console.error('Error fetching master data:', err.message);
@@ -134,7 +145,17 @@ export default function Masters() {
     } catch (err) { alert(err.message); }
   };
 
-  const canCreate = ['parties', 'fabrics', 'shades', 'chemicals'].includes(tab);
+  const handleCreateRate = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/rates', rateForm);
+      setIsModalOpen(false);
+      setRateForm({ party_id: '', fabric_id: '', process_name: 'Dyeing (Reactive)', rate_per_meter: 0, rate_per_kg: 0, slab_min_qty: 0, slab_max_qty: 99999999.99 });
+      fetchData();
+    } catch (err) { alert(err.message); }
+  };
+
+  const canCreate = ['parties', 'fabrics', 'shades', 'chemicals', 'rates'].includes(tab);
 
   return (
     <div className="flex flex-col gap-4">
@@ -156,7 +177,7 @@ export default function Masters() {
         title={TABS.find(t => t.id === tab)?.label}
         headerActions={canCreate && (
           <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-1.5 text-xs">
-            <Plus size={14} /> Add {tab === 'parties' ? 'Party' : tab === 'fabrics' ? 'Fabric' : tab === 'shades' ? 'Shade' : 'Chemical'}
+            <Plus size={14} /> Add {tab === 'parties' ? 'Party' : tab === 'fabrics' ? 'Fabric' : tab === 'shades' ? 'Shade' : tab === 'rates' ? 'Rate' : 'Chemical'}
           </Button>
         )}
       >
@@ -287,6 +308,22 @@ export default function Masters() {
           </Table>
         )}
 
+        {/* Rate Master Table */}
+        {tab === 'rates' && (
+          <Table headers={['Process', 'Party', 'Fabric', 'Rate / Meter', 'Rate / KG', 'Slab (Min-Max)']}>
+            {data.map(r => (
+              <tr key={r.rate_id} className="hover:bg-slate-50">
+                <td className="px-6 py-3 font-semibold text-slate-800">{r.process_name}</td>
+                <td className="px-6 py-3"><Badge status={r.party_name ? 'confirmed' : 'draft'}>{r.party_name || 'Standard'}</Badge></td>
+                <td className="px-6 py-3 text-sm">{r.fabric_name || 'All Fabrics'}</td>
+                <td className="px-6 py-3 font-bold text-emerald-600">₹{Number(r.rate_per_meter).toFixed(2)}</td>
+                <td className="px-6 py-3 font-bold text-blue-600">₹{Number(r.rate_per_kg).toFixed(2)}</td>
+                <td className="px-6 py-3 text-xs">{r.slab_min_qty} - {r.slab_max_qty}</td>
+              </tr>
+            ))}
+          </Table>
+        )}
+
         {data.length === 0 && (
           <div className="text-center py-10 text-slate-400 text-sm">No records found. {canCreate && 'Click the Add button to create one.'}</div>
         )}
@@ -407,6 +444,33 @@ export default function Masters() {
           <div className="flex justify-end gap-3 mt-4 border-t pt-4">
             <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button type="submit">Add Chemical</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Rate Modal */}
+      <Modal isOpen={isModalOpen && tab === 'rates'} onClose={() => setIsModalOpen(false)} title="Add Rate" className="max-w-2xl">
+        <form onSubmit={handleCreateRate} className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Party (Leave blank for Standard)" value={rateForm.party_id} onChange={e => setRateForm({...rateForm, party_id: e.target.value})}
+              options={[{value:'',label:'— Standard Rate —'}, ...parties.filter(p=>p.party_type==='TRADER_MERCHANT').map(p=>({value:p.party_id, label:p.trade_name||p.legal_name}))]} />
+            <Select label="Fabric (Leave blank for All)" value={rateForm.fabric_id} onChange={e => setRateForm({...rateForm, fabric_id: e.target.value})}
+              options={[{value:'',label:'— All Fabrics —'}, ...fabrics.map(f=>({value:f.fabric_id, label:f.fabric_name}))]} />
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+            <Input label="Process Name" value={rateForm.process_name} onChange={e => setRateForm({...rateForm, process_name: e.target.value})} required placeholder="e.g., Dyeing (Reactive)" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Rate per Meter (₹)" type="number" step="0.01" value={rateForm.rate_per_meter} onChange={e => setRateForm({...rateForm, rate_per_meter: e.target.value})} />
+            <Input label="Rate per KG (₹)" type="number" step="0.01" value={rateForm.rate_per_kg} onChange={e => setRateForm({...rateForm, rate_per_kg: e.target.value})} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Slab Min Qty" type="number" step="0.01" value={rateForm.slab_min_qty} onChange={e => setRateForm({...rateForm, slab_min_qty: e.target.value})} />
+            <Input label="Slab Max Qty" type="number" step="0.01" value={rateForm.slab_max_qty} onChange={e => setRateForm({...rateForm, slab_max_qty: e.target.value})} />
+          </div>
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit">Save Rate</Button>
           </div>
         </form>
       </Modal>
