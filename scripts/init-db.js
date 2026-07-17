@@ -53,11 +53,12 @@ async function run() {
       CREATE TABLE roles (
         role_id SERIAL PRIMARY KEY,
         tenant_id UUID REFERENCES tenants(tenant_id),
-        role_code VARCHAR(30) UNIQUE NOT NULL,
+        role_code VARCHAR(30) NOT NULL,
         role_name VARCHAR(50) NOT NULL,
         permissions JSONB DEFAULT '{}',
         description VARCHAR(200),
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tenant_id, role_code)
       );
     `);
 
