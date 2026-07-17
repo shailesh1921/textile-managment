@@ -20,6 +20,15 @@ const PORT = process.env.PORT || 5005;
 app.use(cors());
 app.use(express.json());
 
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ success: true, time: result.rows[0].now, env: process.env.NODE_ENV, hasDbUrl: !!process.env.DATABASE_URL });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, stack: err.stack, dbUrlPreview: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 30) : 'none' });
+  }
+});
+
 pool.connect((err, client, release) => {
   if (err) console.error('DB connection error:', err.message);
   else { console.log('Connected to PostgreSQL'); release(); }
