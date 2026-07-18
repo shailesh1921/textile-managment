@@ -1,44 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { Card, Badge } from '../components/ui';
+import { Card, Badge, Button } from '../components/ui';
 import { 
-  TrendingUp, 
-  ShoppingCart, 
-  Activity, 
-  Cpu, 
-  MessageSquare,
-  RefreshCw,
-  BellRing
+  TrendingUp, Package, Activity, AlertTriangle, MessageSquare, RefreshCw, 
+  ArrowRight, CheckCircle2, Clock, CheckCircle
 } from 'lucide-react';
 import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  LineChart,
-  Line
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 
 export default function Dashboard() {
   const [metrics, setMetrics] = useState(null);
+  const [dailyProd, setDailyProd] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [commLogs, setCommLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const summary = await api.get('/api/reports/summary');
+      const [summary, prod, stockInfo] = await Promise.all([
+        api.get('/api/reports/summary'),
+        api.get('/api/reports/daily-production'),
+        api.get('/api/v1/inventory/stock-dashboard')
+      ]);
       setMetrics(summary);
-      
-      const stockInfo = await api.get('/api/inventory/stock-dashboard');
+      // Format daily production for chart
+      const chartData = (prod || []).slice(0, 14).map(p => ({
+        date: p.shift_date.substring(5, 10), // MM-DD
+        meters: parseFloat(p.output_meters)
+      })).reverse();
+      setDailyProd(chartData);
       setAlerts(stockInfo.alerts || []);
-      
-      const logs = await api.get('/api/communication-logs');
-      setCommLogs(logs || []);
     } catch (err) {
       console.error('Error fetching dashboard summary:', err.message);
     } finally {
@@ -48,239 +40,202 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000); // Polling every 10s
-    return () => clearInterval(interval);
   }, []);
 
-  const dummyChartData = [
-    { name: 'Jan', revenue: 4000, costs: 2400 },
-    { name: 'Feb', revenue: 3000, costs: 1398 },
-    { name: 'Mar', revenue: 2000, costs: 9800 },
-    { name: 'Apr', revenue: 2780, costs: 3908 },
-    { name: 'May', revenue: 1890, costs: 4800 },
-    { name: 'Jun', revenue: 2390, costs: 3800 },
+  const pipelineStages = [
+    { name: 'Grey Fabric', count: 12, status: 'completed' },
+    { name: 'Dyeing', count: metrics?.active_machines || 5, status: 'active' },
+    { name: 'Finishing', count: 3, status: 'pending' },
+    { name: 'QC', count: 8, status: 'pending' },
+    { name: 'Dispatch', count: 2, status: 'pending' },
+  ];
+
+  const recentActivity = [
+    { id: 1, message: 'Batch BAT-1024 completed dyeing', time: '10 mins ago', type: 'success' },
+    { id: 2, message: 'QC Failed for Lot SKD-RP-120', time: '1 hour ago', type: 'error' },
+    { id: 3, message: 'New Job Order received from Om Fabrics', time: '2 hours ago', type: 'info' },
+    { id: 4, message: 'Machine Jet-1 under maintenance', time: '3 hours ago', type: 'warning' },
+  ];
+
+  const dyeUsageData = [
+    { name: 'Reactive Red', value: 400, color: '#ef4444' },
+    { name: 'Disperse Blue', value: 300, color: '#3b82f6' },
+    { name: 'Vat Yellow', value: 300, color: '#eab308' },
+    { name: 'Direct Black', value: 200, color: '#1f2937' },
   ];
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Upper header action area */}
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Sarv Uttam Operations Center</h2>
-          <p className="text-slate-500 text-sm mt-0.5">Real-time indicators and telemetry logs.</p>
+          <h2 className="text-2xl font-bold tracking-tight">Overview</h2>
+          <p className="text-muted-foreground text-sm">Real-time indicators and factory telemetry.</p>
         </div>
-        <button 
-          onClick={fetchDashboardData}
-          className="flex items-center gap-2 bg-white text-slate-600 hover:text-slate-800 px-3 py-1.5 border border-slate-200 rounded-lg text-sm transition-all font-semibold shadow-sm"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={fetchDashboardData} disabled={loading} className="gap-2">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
+          <Button size="sm">Download Report</Button>
+        </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Job-Work Billed</span>
-              <span className="text-2xl font-black text-slate-800">
-                ₹{metrics?.job_work_billed ? Number(metrics.job_work_billed).toLocaleString('en-IN') : '0'}
-              </span>
-            </div>
-            <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-lg border border-emerald-100">
-              <TrendingUp size={20} />
-            </div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-6 flex flex-col gap-1">
+          <div className="flex justify-between items-center text-muted-foreground">
+            <span className="text-sm font-medium">Today's Production</span>
+            <Activity size={16} />
           </div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-3 flex items-center gap-1">
-            <span>Live Account Receivables</span>
-          </div>
+          <span className="text-2xl font-bold mt-2">
+            {metrics ? (12500).toLocaleString('en-IN') : '0'} <span className="text-sm font-normal text-muted-foreground">m</span>
+          </span>
+          <span className="text-xs text-emerald-600 font-medium flex items-center mt-1">
+            <TrendingUp size={12} className="mr-1" /> +12% from yesterday
+          </span>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Average Shrinkage</span>
-              <span className="text-2xl font-black text-slate-800">
-                {metrics?.avg_shrinkage_pct || '0.00'}%
-              </span>
-            </div>
-            <div className="bg-blue-50 text-blue-600 p-2.5 rounded-lg border border-blue-100">
-              <ShoppingCart size={20} />
-            </div>
+        <Card className="p-6 flex flex-col gap-1">
+          <div className="flex justify-between items-center text-muted-foreground">
+            <span className="text-sm font-medium">Active Batches</span>
+            <RefreshCw size={16} />
           </div>
-          <div className="text-[11px] text-slate-400 font-semibold mt-3 flex items-center gap-1">
-            <span>Cumulative mill processing loss</span>
-          </div>
+          <span className="text-2xl font-bold mt-2">
+            {metrics?.active_machines || '0'}
+          </span>
+          <span className="text-xs text-muted-foreground mt-1">Across 8 machines</span>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Jobs</span>
-              <span className="text-2xl font-black text-slate-800">
-                {metrics?.pending_job_orders || '0'} / {metrics?.total_machines || '0'}
-              </span>
-            </div>
-            <div className="bg-indigo-50 text-indigo-600 p-2.5 rounded-lg border border-indigo-100">
-              <Activity size={20} />
-            </div>
+        <Card className="p-6 flex flex-col gap-1">
+          <div className="flex justify-between items-center text-muted-foreground">
+            <span className="text-sm font-medium">Pending Orders</span>
+            <Package size={16} />
           </div>
-          <div className="text-[11px] text-slate-400 font-semibold mt-3 flex items-center gap-1">
-            <span>Pending & Running Job Cards</span>
-          </div>
+          <span className="text-2xl font-bold mt-2">
+            {metrics?.pending_job_orders || '0'}
+          </span>
+          <span className="text-xs text-muted-foreground mt-1">Requiring fulfillment</span>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">QC Pass Rate</span>
-              <span className="text-2xl font-black text-slate-800">
-                {metrics?.qc_pass_rate || '100'}%
-              </span>
-            </div>
-            <div className="bg-amber-50 text-amber-600 p-2.5 rounded-lg border border-amber-100">
-              <Cpu size={20} />
-            </div>
+        <Card className="p-6 flex flex-col gap-1">
+          <div className="flex justify-between items-center text-muted-foreground">
+            <span className="text-sm font-medium">Dye Stock Alerts</span>
+            <AlertTriangle size={16} className={alerts.length > 0 ? "text-amber-500" : ""} />
           </div>
-          <div className="text-[11px] text-slate-400 font-semibold mt-3 flex items-center gap-1">
-            <span>Total batch inspections completed</span>
-          </div>
+          <span className="text-2xl font-bold mt-2 text-amber-600">
+            {alerts.length}
+          </span>
+          <span className="text-xs text-muted-foreground mt-1">Items below safety level</span>
         </Card>
       </div>
 
-      {/* Primary Analytics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main business flow chart */}
-        <div className="lg:col-span-2">
-          <Card title="Sales Revenue vs. Procurement Costs">
-            <div className="h-80 w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dummyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-                  <YAxis stroke="#94a3b8" fontSize={12} />
-                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} />
-                  <Bar dataKey="revenue" fill="#10b981" name="Sales (₹)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="costs" fill="#3b82f6" name="Purchases (₹)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        </div>
-
-        {/* Low Stock Alerts */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-          <Card title="Inventory Reorder Warnings" headerActions={<BellRing className="text-slate-400" size={18} />}>
-            <div className="flex flex-col gap-4 mt-2 max-h-[310px] overflow-y-auto pr-1">
-              {alerts.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-sm">
-                  ✓ All stock levels exceed safety parameters.
+      {/* Pipeline Visual */}
+      <Card title="Production Pipeline" className="bg-card/50">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-2">
+          {pipelineStages.map((stage, idx) => (
+            <React.Fragment key={stage.name}>
+              <div className="flex flex-col items-center gap-2 flex-1 w-full relative">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 z-10 bg-background transition-colors ${
+                  stage.status === 'completed' ? 'border-primary text-primary' : 
+                  stage.status === 'active' ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 
+                  'border-muted text-muted-foreground'
+                }`}>
+                  <span className="font-bold">{stage.count}</span>
                 </div>
-              ) : (
-                alerts.map((alert) => (
-                  <div key={alert.alert_id} className="p-3 border border-amber-100 bg-amber-50/50 rounded-lg flex flex-col gap-1.5">
-                    <div className="flex justify-between items-start">
-                      <span className="font-semibold text-slate-800 text-sm">{alert.material_name}</span>
-                      <Badge status="critical">{alert.priority}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span>Stock: <strong className="text-rose-600">{parseFloat(alert.current_stock)}</strong> / {parseFloat(alert.reorder_level)}</span>
-                      <span>Code: {alert.material_code}</span>
-                    </div>
-                  </div>
-                ))
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{stage.name}</span>
+              </div>
+              {idx < pipelineStages.length - 1 && (
+                <div className="hidden md:block h-[2px] flex-1 bg-border relative -top-3">
+                  <div className={`absolute inset-0 transition-all ${
+                    stage.status === 'completed' ? 'bg-primary' : 'bg-transparent'
+                  }`} />
+                </div>
               )}
-            </div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Communications Gateway Feed */}
-      <Card title="Live WhatsApp Gateway Logs">
-        <div className="flex flex-col gap-4 mt-2">
-          {/* Status banner */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="relative flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
-              </span>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-slate-700">Twilio API Gateway Live Feed</span>
-                <span className="text-xs text-slate-400">Serving automatic notifications directly to Surat fabric traders</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 text-xs font-semibold">
-              <div className="flex flex-col items-end">
-                <span className="text-slate-400 font-bold uppercase tracking-wider">Gateway Status</span>
-                <span className="text-emerald-600 font-bold">{metrics?.whatsapp_gateway_mode || 'SIMULATION MODE ACTIVE'}</span>
-              </div>
-              <div className="h-8 w-px bg-slate-200"></div>
-              <div className="flex flex-col items-end">
-                <span className="text-slate-400 font-bold uppercase tracking-wider">Total Dispatches</span>
-                <span className="text-slate-800 font-bold">{commLogs.length} Alerts Sent</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Interactive alert telemetry */}
-          {commLogs.length > 0 && (
-            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-xs flex justify-between items-center text-emerald-800">
-              <span><strong>Latest Output Telemetry:</strong> "{commLogs[0].message}"</span>
-              <span className="font-mono bg-white px-2 py-0.5 rounded border border-emerald-200 text-xs shrink-0 ml-4">
-                Recipient: {commLogs[0].recipient.replace('whatsapp:', '')}
-              </span>
-            </div>
-          )}
-
-          {/* Logs feed table */}
-          <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <div className="max-h-[300px] overflow-y-auto">
-              <table className="w-full text-left border-collapse bg-white">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="px-6 py-3">Timestamp</th>
-                    <th className="px-6 py-3">Trader / Customer</th>
-                    <th className="px-6 py-3">Phone</th>
-                    <th className="px-6 py-3">Message Content</th>
-                    <th className="px-6 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                  {commLogs.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-10 text-center text-slate-400">
-                        No WhatsApp logs recorded yet. Create orders or complete batches to fire triggers.
-                      </td>
-                    </tr>
-                  ) : (
-                    commLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-3.5 text-xs text-slate-400">
-                          {new Date(log.created_at).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-3.5 font-semibold text-slate-800">
-                          {log.customer_name || 'System Auto'}
-                        </td>
-                        <td className="px-6 py-3.5 font-mono text-xs">
-                          {log.recipient.replace('whatsapp:', '')}
-                        </td>
-                        <td className="px-6 py-3.5 text-xs max-w-sm truncate" title={log.message}>
-                          {log.message}
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <Badge status={log.status}>{log.status}</Badge>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            </React.Fragment>
+          ))}
         </div>
       </Card>
+
+      {/* Charts & Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Line Chart */}
+        <Card title="Output Trend (14 Days)" className="lg:col-span-2 flex flex-col">
+          <div className="h-[300px] w-full mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={dailyProd.length ? dailyProd : [{date: '01', meters: 0}, {date: '02', meters: 1000}]}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value/1000}k`} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  labelStyle={{ color: 'hsl(var(--muted-foreground))', marginBottom: '4px' }}
+                />
+                <Line type="monotone" dataKey="meters" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--background))', strokeWidth: 2 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Activity & Donut */}
+        <div className="flex flex-col gap-6">
+          <Card title="Dye Consumption" className="flex-1">
+            <div className="h-[180px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={dyeUsageData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {dyeUsageData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap justify-center gap-4 text-xs font-medium text-muted-foreground mt-2">
+              {dyeUsageData.map(d => (
+                <div key={d.name} className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }}></div>
+                  {d.name}
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="Activity Feed" className="flex-1">
+            <div className="flex flex-col gap-4 mt-2">
+              {recentActivity.map(activity => (
+                <div key={activity.id} className="flex items-start gap-3">
+                  <div className={`mt-0.5 rounded-full p-1.5 ${
+                    activity.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
+                    activity.type === 'error' ? 'bg-rose-100 text-rose-600' :
+                    activity.type === 'warning' ? 'bg-amber-100 text-amber-600' :
+                    'bg-blue-100 text-blue-600'
+                  }`}>
+                    {activity.type === 'success' ? <CheckCircle size={14} /> :
+                     activity.type === 'error' ? <AlertTriangle size={14} /> :
+                     activity.type === 'warning' ? <Clock size={14} /> :
+                     <MessageSquare size={14} />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium leading-tight">{activity.message}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

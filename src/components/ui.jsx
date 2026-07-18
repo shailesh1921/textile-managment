@@ -1,92 +1,116 @@
 import React from 'react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { X } from 'lucide-react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 
-export const Button = ({ children, onClick, type = 'button', variant = 'primary', className = '', disabled = false }) => {
-  const base = 'px-4 py-2 rounded-md font-medium text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
+export const Button = React.forwardRef(({ className, variant = 'default', size = 'default', ...props }, ref) => {
   const variants = {
-    primary: 'bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-emerald-500 shadow-sm',
-    secondary: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 focus:ring-slate-400 shadow-sm',
-    danger: 'bg-rose-600 hover:bg-rose-700 text-white focus:ring-rose-500 shadow-sm',
-    success: 'bg-teal-600 hover:bg-teal-700 text-white focus:ring-teal-500 shadow-sm'
+    default: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
+    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm',
+    outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground shadow-sm',
+    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm',
+    ghost: 'hover:bg-accent hover:text-accent-foreground',
+    link: 'text-primary underline-offset-4 hover:underline',
+  };
+  const sizes = {
+    default: 'h-9 px-4 py-2',
+    sm: 'h-8 rounded-md px-3 text-xs',
+    lg: 'h-10 rounded-md px-8',
+    icon: 'h-9 w-9',
   };
 
   return (
     <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      className={`${base} ${variants[variant]} ${className}`}
-    >
-      {children}
-    </button>
+      ref={ref}
+      className={cn(
+        'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+        variants[variant],
+        sizes[size],
+        className
+      )}
+      {...props}
+    />
   );
-};
+});
+Button.displayName = 'Button';
 
-export const Input = ({ label, name, type = 'text', value, onChange, placeholder, required = false, className = '' }) => {
+export const Input = React.forwardRef(({ className, type, label, ...props }, ref) => {
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
-      {label && <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{label}</label>}
+    <div className="flex flex-col gap-1.5 w-full">
+      {label && <label className="text-xs font-semibold text-foreground/80 tracking-wide">{label}</label>}
       <input
         type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        className="w-full bg-white text-slate-800 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all placeholder:text-slate-400 shadow-sm"
+        className={cn(
+          'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+          className
+        )}
+        ref={ref}
+        {...props}
       />
     </div>
   );
-};
+});
+Input.displayName = 'Input';
 
-export const Select = ({ label, name, value, onChange, options = [], required = false, className = '' }) => {
+export const Select = React.forwardRef(({ className, label, options = [], ...props }, ref) => {
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
-      {label && <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{label}</label>}
+    <div className="flex flex-col gap-1.5 w-full">
+      {label && <label className="text-xs font-semibold text-foreground/80 tracking-wide">{label}</label>}
       <select
-        name={name}
-        value={value}
-        onChange={onChange}
-        required={required}
-        className="w-full bg-white text-slate-800 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all shadow-sm"
+        className={cn(
+          'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+          className
+        )}
+        ref={ref}
+        {...props}
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <option key={opt.value} value={opt.value} className="bg-background text-foreground">
             {opt.label}
           </option>
         ))}
       </select>
     </div>
   );
-};
+});
+Select.displayName = 'Select';
 
-export const Card = ({ children, title, headerActions, className = '' }) => {
+export const Card = ({ className, children, title, headerActions, description, ...props }) => {
   return (
-    <div className={`bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden ${className}`}>
-      {(title || headerActions) && (
-        <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-          {title && <h3 className="font-semibold text-slate-800 text-lg">{title}</h3>}
-          {headerActions && <div>{headerActions}</div>}
+    <div className={cn('rounded-xl border bg-card text-card-foreground shadow-sm', className)} {...props}>
+      {(title || description || headerActions) && (
+        <div className="flex flex-col space-y-1.5 p-6 border-b border-border/50">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold leading-none tracking-tight">{title}</h3>
+            {headerActions && <div>{headerActions}</div>}
+          </div>
+          {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
       )}
-      <div className="p-6">{children}</div>
+      <div className="p-6 pt-4">{children}</div>
     </div>
   );
 };
 
-export const Table = ({ headers = [], children, className = '' }) => {
+export const Table = ({ className, headers = [], children, ...props }) => {
   return (
-    <div className={`w-full overflow-x-auto border border-slate-200 rounded-lg shadow-sm ${className}`}>
-      <table className="w-full text-left border-collapse bg-white">
-        <thead>
-          <tr className="bg-slate-50 border-b border-slate-200">
-            {headers.map((h, idx) => (
-              <th key={idx} className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+    <div className="relative w-full overflow-auto rounded-lg border shadow-sm">
+      <table className={cn('w-full caption-bottom text-sm', className)} {...props}>
+        <thead className="[&_tr]:border-b bg-muted/50">
+          <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+            {headers.map((h, i) => (
+              <th key={i} className="h-10 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+        <tbody className="[&_tr:last-child]:border-0">
           {children}
         </tbody>
       </table>
@@ -94,64 +118,49 @@ export const Table = ({ headers = [], children, className = '' }) => {
   );
 };
 
-export const Badge = ({ children, status }) => {
-  const getColors = () => {
-    switch (String(status).toLowerCase()) {
-      case 'active':
-      case 'available':
-      case 'passed':
-      case 'approved':
-      case 'sent':
-      case 'completed':
-      case 'delivered':
-        return 'bg-emerald-50 border-emerald-200 text-emerald-700';
-      case 'in_use':
-      case 'in_progress':
-      case 'confirmed':
-      case 'dispatched':
-      case 'ordered':
-        return 'bg-blue-50 border-blue-200 text-blue-700';
-      case 'pending':
-      case 'draft':
-      case 'planned':
-      case 'in_transit':
-      case 'maintenance':
-        return 'bg-amber-50 border-amber-200 text-amber-700';
-      case 'failed':
-      case 'rejected':
-      case 'cancelled':
-      case 'breakdown':
-      case 'critical':
-      case 'blacklist':
-        return 'bg-rose-50 border-rose-200 text-rose-700';
-      default:
-        return 'bg-slate-50 border-slate-200 text-slate-700';
-    }
+export const TableRow = ({ className, ...props }) => (
+  <tr className={cn('border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted', className)} {...props} />
+);
+
+export const TableCell = ({ className, ...props }) => (
+  <td className={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0', className)} {...props} />
+);
+
+export const Badge = ({ className, variant = 'default', children, ...props }) => {
+  const variants = {
+    default: 'border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80',
+    secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
+    destructive: 'border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80',
+    outline: 'text-foreground',
+    success: 'border-transparent bg-emerald-500 text-white shadow hover:bg-emerald-600',
+    warning: 'border-transparent bg-amber-500 text-white shadow hover:bg-amber-600',
   };
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getColors()}`}>
+    <div className={cn('inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2', variants[variant], className)} {...props}>
       {children}
-    </span>
+    </div>
   );
 };
 
-export const Modal = ({ isOpen, onClose, title, children, className = 'max-w-lg' }) => {
-  if (!isOpen) return null;
+// Simplified Dialog wrapper for standard modals
+export const Modal = ({ isOpen, onClose, title, description, children, className }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-      <div className={`bg-white rounded-xl shadow-xl border border-slate-200 w-full overflow-hidden transform transition-all z-10 ${className}`}>
-        <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-          <h3 className="font-semibold text-slate-800 text-lg">{title}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-6 max-h-[80vh] overflow-y-auto">{children}</div>
-      </div>
-    </div>
+    <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className={cn('fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg md:w-full', className)}>
+          <div className="flex flex-col space-y-1.5 text-center sm:text-left">
+            <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight">{title}</DialogPrimitive.Title>
+            {description && <DialogPrimitive.Description className="text-sm text-muted-foreground">{description}</DialogPrimitive.Description>}
+          </div>
+          {children}
+          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 };
