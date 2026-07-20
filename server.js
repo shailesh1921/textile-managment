@@ -16,6 +16,10 @@ const reportRoutes = require('./server/routes/reports');
 const ratesRoutes = require('./server/routes/rates');
 const grnRoutes = require('./server/routes/grns');
 
+const commRoutes = require('./server/routes/communication');
+const analyticsRoutes = require('./server/routes/analytics');
+const clientPortalRoutes = require('./server/routes/clientPortal');
+
 const app = express();
 const PORT = process.env.PORT || 5005;
 
@@ -47,6 +51,9 @@ app.use('/api/v1/finance', financeRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/v1/rates', ratesRoutes);
 app.use('/api/v1/grns', grnRoutes);
+app.use('/api/v1/communication', commRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/client-portal', clientPortalRoutes);
 
 // Legacy aliases for existing frontend paths
 app.use('/api', masterRoutes);

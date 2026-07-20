@@ -3,8 +3,10 @@ import { api } from '../../lib/api';
 import { Card, Table, TableRow, TableCell, Button, Badge, Modal, Input, Select } from '../../components/ui';
 import { 
   Plus, Power, ShieldAlert, CheckCircle, Flame, Wrench, RefreshCw, 
-  Layers, Sliders, BarChart, FileEdit, Settings
+  Layers, Sliders, BarChart, FileEdit, Settings, QrCode, Send
 } from 'lucide-react';
+import { SendNotificationModal } from '../../components/SendNotificationModal';
+import { BatchQRModal } from '../../components/BatchQRModal';
 
 const SHIFTS = [
   { value: 'A', label: 'A Shift (06:00 - 14:00)' },
@@ -21,9 +23,13 @@ export default function Production() {
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [isDispenseModalOpen, setIsDispenseModalOpen] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
 
   // Selected entities
   const [selectedBatch, setSelectedBatch] = useState(null);
+  const [targetBatchId, setTargetBatchId] = useState(null);
+  const [targetPhone, setTargetPhone] = useState('');
 
   // Forms
   const [loadForm, setLoadForm] = useState({
@@ -213,6 +219,22 @@ export default function Production() {
                 <TableCell>{getStatusBadge(b.status)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => { setTargetBatchId(b.batch_id); setIsQRModalOpen(true); }}
+                      title="View / Print Batch QR Code"
+                    >
+                      <QrCode size={14} />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => { setSelectedBatch(b); setIsNotifyModalOpen(true); }}
+                      title="Send SMS / WhatsApp Update to Client"
+                    >
+                      <Send size={14} className="mr-1" /> Notify
+                    </Button>
                     {b.status === 'LOADING' && (
                       <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(b.batch_id, 'IN_PROCESS')}>
                         Start Running
@@ -371,6 +393,22 @@ export default function Production() {
           </div>
         </form>
       </Modal>
+
+      {/* SMS & WhatsApp Notification Modal */}
+      <SendNotificationModal 
+        isOpen={isNotifyModalOpen} 
+        onClose={() => setIsNotifyModalOpen(false)} 
+        defaultPhone={selectedBatch?.client_phone || ''}
+        defaultOrderNo={selectedBatch?.batch_no || ''}
+        batchId={selectedBatch?.batch_id}
+      />
+
+      {/* Shop Floor QR Code Modal */}
+      <BatchQRModal 
+        isOpen={isQRModalOpen} 
+        onClose={() => setIsQRModalOpen(false)} 
+        batchId={targetBatchId} 
+      />
     </div>
   );
 }

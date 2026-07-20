@@ -130,10 +130,10 @@ export default function Finance() {
 
           <div className="lg:col-span-2">
             <Card title="Seeded Billing Transactions">
-              <Table headers={['Bill Ref No', 'Job Order', 'Billed Qty', 'Rate Charged', 'Net Billed Amount']}>
+              <Table headers={['Bill Ref No', 'Job Order', 'Billed Qty', 'Rate Charged', 'Net Billed Amount', 'PDF Invoice']}>
                 {jobOrders.filter(j => j.status === 'COMPLETED' || j.status === 'PARTIALLY_DISPATCHED').length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-10 text-center text-slate-400">
+                    <td colSpan="6" className="px-6 py-10 text-center text-slate-400">
                       No billed transactions found. Process completed jobs to generate invoices.
                     </td>
                   </tr>
@@ -146,6 +146,16 @@ export default function Finance() {
                       <td className="px-6 py-4">₹{parseFloat(j.rate_per_meter)} / m</td>
                       <td className="px-6 py-4 font-bold text-slate-800">
                         ₹{(parseFloat(j.qty_meters_ordered) * parseFloat(j.rate_per_meter)).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <a 
+                          href={`/api/v1/finance/invoices/${j.job_order_id}/pdf`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          Download PDF
+                        </a>
                       </td>
                     </tr>
                   ))

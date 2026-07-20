@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { authenticateToken } = require('../middleware');
 const { nextDocNo, calcShrinkage } = require('../utils/helpers');
+const QRCode = require('qrcode');
 
 const router = express.Router();
 
@@ -194,6 +195,35 @@ router.get('/shrinkage/:lotId', authenticateToken, async (req, res) => {
     );
     const lot = await pool.query(`SELECT grey_qty_meters_in, finished_qty_meters, cumulative_shrinkage_pct FROM lots WHERE lot_id = $1`, [req.params.lotId]);
     res.json({ lot: lot.rows[0], stages: stages.rows });
+router.get('/batches/:id/qr', async (req, res) => {
+  try {
+    const batchId = req.params.id;
+    const batchRes = await pool.query(
+      `SELECT br.*, l.lot_no, l.barcode_value, m.machine_name, ps.process_name 
+       FROM batch_runs br
+       LEFT JOIN lots l ON br.lot_id = l.lot_id
+       LEFT JOIN machines m ON br.machine_id = m.machine_id
+       LEFT JOIN process_templates ps ON br.stage_id = ps.template_id
+       WHERE br.batch_id = $1`,
+      [batchId]
+    );
+
+    if (batchRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    const batch = batchRes.rows[0];
+    const payload = JSON.stringify({
+      batchId: batch.batch_id,
+      batchNo: batch.batch_no,
+      lotNo: batch.lot_no,
+      machine: batch.machine_name,
+      stage: batch.process_name,
+      status: batch.status
+    });
+
+    const qrDataUrl = await QRCode.toDataURL(payload, { width: 300, margin: 2 });
+    res.json({ batch, qrDataUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

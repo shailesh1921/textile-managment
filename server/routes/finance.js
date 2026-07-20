@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { authenticateToken } = require('../middleware');
 const { nextDocNo } = require('../utils/helpers');
+const PDFDocument = require('pdfkit');
 
 const router = express.Router();
 
@@ -58,7 +59,99 @@ router.get('/lot-cost/:lotId', authenticateToken, async (req, res) => {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING *`,
     [req.user.tenant_id, lotId, recipeCost, machineCost, total, billed, billed - total, billed ? (((billed - total) / billed) * 100).toFixed(2) : 0]
   );
-  res.json(sheet.rows[0] || { lot_id: lotId, recipe_cost: recipeCost, total_cost: total, billed_amount: billed });
+router.get('/invoices/:id/pdf', async (req, res) => {
+  try {
+    const billId = req.params.id;
+    const billRes = await pool.query(
+      `SELECT b.*, jo.order_no, p.legal_name as party_name, p.gstin as party_gstin, p.billing_address, f.fabric_name 
+       FROM job_work_bills b
+       JOIN job_orders jo ON b.job_order_id = jo.job_order_id
+       JOIN parties p ON jo.party_id = p.party_id
+       JOIN fabrics f ON jo.fabric_id = f.fabric_id
+       WHERE b.bill_id = $1`,
+      [billId]
+    );
+
+    if (billRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const bill = billRes.rows[0];
+
+    // Create PDF Document
+    const doc = new PDFDocument({ margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Invoice_${bill.bill_no}.pdf"`);
+
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(20).text('SK DYEING & FINISHING MILLS', { align: 'center' });
+    doc.fontSize(10).text('Plot 42, GIDC Pandesara Industrial Estate, Surat, Gujarat - 394221', { align: 'center' });
+    doc.text('GSTIN: 24AAACS1234F1Z9 | Phone: +91 98765 43210', { align: 'center' });
+    doc.moveDown();
+    doc.moveTo(40, doc.y).lineTo(570, doc.y).stroke();
+    doc.moveDown();
+
+    // Invoice Meta
+    doc.fontSize(16).text('TAX INVOICE (JOB-WORK)', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10);
+    doc.text(`Invoice No: ${bill.bill_no}`);
+    doc.text(`Date: ${new Date(bill.created_at || Date.now()).toLocaleDateString('en-IN')}`);
+    doc.text(`Job Order No: ${bill.order_no}`);
+    doc.moveDown();
+
+    // Client Info
+    doc.text(`Billed To: ${bill.party_name}`);
+    if (bill.party_gstin) doc.text(`GSTIN: ${bill.party_gstin}`);
+    if (bill.billing_address) doc.text(`Address: ${bill.billing_address}`);
+    doc.moveDown();
+
+    // Table Header
+    doc.moveTo(40, doc.y).lineTo(570, doc.y).stroke();
+    doc.moveDown(0.5);
+    doc.font('Helvetica-Bold');
+    doc.text('Item / Service', 50, doc.y, { width: 200 });
+    doc.text('Processed Qty', 250, doc.y - 12, { width: 100 });
+    doc.text('Rate', 370, doc.y - 12, { width: 80 });
+    doc.text('Amount (Rs)', 470, doc.y - 12, { width: 90 });
+    doc.font('Helvetica');
+    doc.moveDown(0.5);
+    doc.moveTo(40, doc.y).lineTo(570, doc.y).stroke();
+    doc.moveDown(0.5);
+
+    // Line Item
+    const qtyText = `${bill.processed_qty_meters || bill.processed_qty_kg} ${bill.billing_uom || 'Meters'}`;
+    const rateText = `Rs. ${bill.rate}`;
+    const amtText = `Rs. ${bill.gross_amount}`;
+
+    doc.text(`Dyeing & Finishing Job-work (${bill.fabric_name})`, 50, doc.y, { width: 200 });
+    doc.text(qtyText, 250, doc.y - 12, { width: 100 });
+    doc.text(rateText, 370, doc.y - 12, { width: 80 });
+    doc.text(amtText, 470, doc.y - 12, { width: 90 });
+
+    doc.moveDown(2);
+    doc.moveTo(40, doc.y).lineTo(570, doc.y).stroke();
+    doc.moveDown();
+
+    // Total Amount
+    doc.font('Helvetica-Bold');
+    doc.text(`TOTAL AMOUNT: Rs. ${bill.net_amount || bill.gross_amount}`, { align: 'right' });
+    doc.moveDown(2);
+
+    doc.font('Helvetica');
+    doc.text('Terms & Conditions:', { underline: true });
+    doc.text('1. Payment due within credit period terms.');
+    doc.text('2. Goods once delivered cannot be returned unless QC defect flagged within 48 hours.');
+    doc.moveDown(2);
+
+    doc.text('Authorized Signatory for SK Dyeing & Finishing', { align: 'right' });
+
+    doc.end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

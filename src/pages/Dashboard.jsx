@@ -8,12 +8,15 @@ import {
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
+import { MarketDataWidget } from '../components/MarketDataWidget';
+import { ClientPortalModal } from '../components/ClientPortalModal';
 
 export default function Dashboard() {
   const [metrics, setMetrics] = useState(null);
   const [dailyProd, setDailyProd] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isClientPortalOpen, setIsClientPortalOpen] = useState(false);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -54,7 +57,7 @@ export default function Dashboard() {
     { id: 1, message: 'Batch BAT-1024 completed dyeing', time: '10 mins ago', type: 'success' },
     { id: 2, message: 'QC Failed for Lot SKD-RP-120', time: '1 hour ago', type: 'error' },
     { id: 3, message: 'New Job Order received from Om Fabrics', time: '2 hours ago', type: 'info' },
-    { id: 4, message: 'Machine Jet-1 under maintenance', time: '3 hours ago', type: 'warning' },
+    { id: 4, message: 'Machine Jet-1 under maintenance', type: 'warning' },
   ];
 
   const dyeUsageData = [
@@ -70,16 +73,21 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Overview</h2>
-          <p className="text-muted-foreground text-sm">Real-time indicators and factory telemetry.</p>
+          <p className="text-muted-foreground text-sm">Real-time indicators, market index & factory telemetry.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsClientPortalOpen(true)} className="gap-2">
+            Client Order Tracker (OTP)
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchDashboardData} disabled={loading} className="gap-2">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh
           </Button>
-          <Button size="sm">Download Report</Button>
         </div>
       </div>
+
+      {/* Market Data Commodity Index Widget */}
+      <MarketDataWidget />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -236,6 +244,8 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      <ClientPortalModal isOpen={isClientPortalOpen} onClose={() => setIsClientPortalOpen(false)} />
     </div>
   );
 }
