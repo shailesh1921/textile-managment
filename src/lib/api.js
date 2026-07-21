@@ -24,7 +24,7 @@ export const api = {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://textile-managment.onrender.com' : '');
+    const apiBase = import.meta.env.VITE_API_URL || '';
     const url = path.startsWith('http') ? path : `${apiBase}${path}`;
     const response = await fetch(url, {
       method,

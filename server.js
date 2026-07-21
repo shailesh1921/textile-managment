@@ -68,4 +68,8 @@ app.use('/api/inventory', invRoutes);
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 
-app.listen(PORT, () => console.log(`Server http://localhost:${PORT}`));
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  app.listen(PORT, () => console.log(`Server http://localhost:${PORT}`));
+}
+
+module.exports = app;
