@@ -60,4 +60,6 @@ mount('/api/production', '../server/routes/production');
 mount('/api/quality', '../server/routes/quality');
 mount('/api/inventory', '../server/routes/inventory');
 
-module.exports = app;
+module.exports = (req, res) => {
+  return app(req, res);
+};
