@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { MarketDataWidget } from '../components/MarketDataWidget';
 import { ClientPortalModal } from '../components/ClientPortalModal';
+import { OwnerAnalyticsWidgetGroup } from '../components/OwnerAnalyticsWidgetGroup';
 
 export default function Dashboard() {
   const [metrics, setMetrics] = useState(null);
@@ -244,6 +245,9 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Phase 5 Owner Analytics Widgets */}
+      <OwnerAnalyticsWidgetGroup />
 
       <ClientPortalModal isOpen={isClientPortalOpen} onClose={() => setIsClientPortalOpen(false)} />
     </div>

@@ -20,6 +20,7 @@ const commRoutes = require('./server/routes/communication');
 const analyticsRoutes = require('./server/routes/analytics');
 const clientPortalRoutes = require('./server/routes/clientPortal');
 const jobWorkRoutes = require('./server/routes/jobWork');
+const ownerAnalyticsRoutes = require('./server/routes/ownerAnalytics');
 
 const app = express();
 const PORT = process.env.PORT || 5005;
@@ -56,6 +57,7 @@ app.use('/api/v1/communication', commRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/client-portal', clientPortalRoutes);
 app.use('/api/v1/job-work', jobWorkRoutes);
+app.use('/api/v1/owner-analytics', ownerAnalyticsRoutes);
 
 // Legacy aliases for existing frontend paths
 app.use('/api', masterRoutes);
