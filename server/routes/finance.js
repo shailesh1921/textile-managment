@@ -2,7 +2,6 @@ const express = require('express');
 const { pool } = require('../db');
 const { authenticateToken } = require('../middleware');
 const { nextDocNo } = require('../utils/helpers');
-const PDFDocument = require('pdfkit');
 
 const router = express.Router();
 
@@ -69,6 +68,7 @@ router.get('/lot-cost/:lotId', authenticateToken, async (req, res) => {
 
 router.get('/invoices/:id/pdf', authenticateToken, async (req, res) => {
   try {
+    const PDFDocument = require('pdfkit');
     const billId = req.params.id;
     const billRes = await pool.query(
       `SELECT b.*, jo.order_no, p.legal_name as party_name, p.gstin as party_gstin, p.billing_address, f.fabric_name 
