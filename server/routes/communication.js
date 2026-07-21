@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
+const { authenticateToken } = require('../middleware');
 const twilio = require('twilio');
 
 // Initialize Twilio client if credentials exist
@@ -20,33 +21,32 @@ if (twilioAccountSid && twilioAuthToken) {
 // Standard reusable SMS / WhatsApp templates
 const TEMPLATES = {
   ORDER_RECEIVED: (orderNo, fabricName) => 
-    `[SK Dyeing & Finishing] Order Received: Job Order #${orderNo} for ${fabricName} has been logged. We will notify you when processing begins.`,
+    `[Surat Textile ERP] Order Received: Job Order #${orderNo} for ${fabricName} has been logged. We will notify you when processing begins.`,
   
   DYEING_STARTED: (batchNo, shadeCode) => 
-    `[SK Dyeing & Finishing] Processing Alert: Dyeing batch #${batchNo} (Shade: ${shadeCode}) has started on machine.`,
+    `[Surat Textile ERP] Processing Alert: Dyeing batch #${batchNo} (Shade: ${shadeCode}) has started on machine.`,
   
   QC_PASSED: (lotNo, deltaE) => 
-    `[SK Dyeing & Finishing] Quality Check Passed: Lot #${lotNo} shade approved (Delta-E: ${deltaE || '0.35'}). Ready for finishing.`,
+    `[Surat Textile ERP] Quality Check Passed: Lot #${lotNo} shade approved (Delta-E: ${deltaE || '0.35'}). Ready for finishing.`,
   
   READY_DISPATCH: (orderNo, totalMeters) => 
-    `[SK Dyeing & Finishing] Order Ready: Job Order #${orderNo} (${totalMeters}m) is packed and ready for dispatch.`,
+    `[Surat Textile ERP] Order Ready: Job Order #${orderNo} (${totalMeters}m) is packed and ready for dispatch.`,
   
   DISPATCHED: (challanNo, transporter, trackingNo) => 
-    `[SK Dyeing & Finishing] Order Dispatched: Dispatch Challan #${challanNo} via ${transporter || 'Transporter'}. Tracking: ${trackingNo || 'N/A'}.`,
+    `[Surat Textile ERP] Order Dispatched: Dispatch Challan #${challanNo} via ${transporter || 'Transporter'}. Tracking: ${trackingNo || 'N/A'}.`,
   
   PAYMENT_DUE: (invoiceNo, amountDue, dueDate) => 
-    `[SK Dyeing & Finishing] Payment Due Notice: Invoice #${invoiceNo} for Rs.${amountDue} is due on ${dueDate}. Please clear balance.`,
+    `[Surat Textile ERP] Payment Due Notice: Invoice #${invoiceNo} for Rs.${amountDue} is due on ${dueDate}. Please clear balance.`,
   
   PAYMENT_RECEIVED: (receiptNo, amount) => 
-    `[SK Dyeing & Finishing] Payment Received: Thank you! We received Rs.${amount} against Receipt #${receiptNo}.`
+    `[Surat Textile ERP] Payment Received: Thank you! We received Rs.${amount} against Receipt #${receiptNo}.`
 };
 
 // Internal helper to send SMS & log delivery
-async function sendSMSInternal({ recipient, message, templateCode, jobOrderId, batchId }) {
+async function sendSMSInternal({ tenantId, recipient, message, templateCode, jobOrderId, batchId }) {
   let status = 'SENT';
   let errorMessage = null;
 
-  // Formatting recipient phone (ensure +91 prefix if Indian 10-digit number)
   let formattedPhone = recipient.trim();
   if (/^\d{10}$/.test(formattedPhone)) {
     formattedPhone = `+91${formattedPhone}`;
@@ -65,17 +65,15 @@ async function sendSMSInternal({ recipient, message, templateCode, jobOrderId, b
       console.error('Twilio SMS Delivery Error:', err.message);
     }
   } else {
-    // Console simulation mode if live keys not configured
-    console.log(`[SMS SIMULATION] To: ${formattedPhone} | Message: ${message}`);
+    console.log(`[SMS SIMULATION] Tenant: ${tenantId} | To: ${formattedPhone} | Message: ${message}`);
   }
 
-  // Insert log into communication_logs
   try {
     await pool.query(
       `INSERT INTO communication_logs 
-        (channel, provider, recipient_phone, template_code, message_body, status, error_message, job_order_id, batch_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      ['SMS', twilioClient ? 'TWILIO' : 'SIMULATED', formattedPhone, templateCode || 'CUSTOM', message, status, errorMessage, jobOrderId || null, batchId || null]
+        (tenant_id, channel, provider, recipient_phone, template_code, message_body, status, error_message, job_order_id, batch_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [tenantId || '00000000-0000-0000-0000-000000000001', 'SMS', twilioClient ? 'TWILIO' : 'SIMULATED', formattedPhone, templateCode || 'CUSTOM', message, status, errorMessage, jobOrderId || null, batchId || null]
     );
   } catch (dbErr) {
     console.error('Failed to log SMS to DB:', dbErr.message);
@@ -84,8 +82,8 @@ async function sendSMSInternal({ recipient, message, templateCode, jobOrderId, b
   return { success: status === 'SENT', status, recipient: formattedPhone, error: errorMessage };
 }
 
-// Internal helper for WhatsApp message sending (with optional image)
-async function sendWhatsAppInternal({ recipient, message, mediaUrl, templateCode, jobOrderId, batchId }) {
+// Internal helper for WhatsApp message sending
+async function sendWhatsAppInternal({ tenantId, recipient, message, mediaUrl, templateCode, jobOrderId, batchId }) {
   let status = 'SENT';
   let errorMessage = null;
 
@@ -111,15 +109,15 @@ async function sendWhatsAppInternal({ recipient, message, mediaUrl, templateCode
       console.error('Twilio WhatsApp Delivery Error:', err.message);
     }
   } else {
-    console.log(`[WHATSAPP SIMULATION] To: ${whatsappTo} | Media: ${mediaUrl || 'None'} | Message: ${message}`);
+    console.log(`[WHATSAPP SIMULATION] Tenant: ${tenantId} | To: ${whatsappTo} | Media: ${mediaUrl || 'None'} | Message: ${message}`);
   }
 
   try {
     await pool.query(
       `INSERT INTO communication_logs 
-        (channel, provider, recipient_phone, template_code, message_body, media_url, status, error_message, job_order_id, batch_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      ['WHATSAPP', twilioClient ? 'TWILIO' : 'SIMULATED', formattedPhone, templateCode || 'CUSTOM', message, mediaUrl || null, status, errorMessage, jobOrderId || null, batchId || null]
+        (tenant_id, channel, provider, recipient_phone, template_code, message_body, media_url, status, error_message, job_order_id, batch_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [tenantId || '00000000-0000-0000-0000-000000000001', 'WHATSAPP', twilioClient ? 'TWILIO' : 'SIMULATED', formattedPhone, templateCode || 'CUSTOM', message, mediaUrl || null, status, errorMessage, jobOrderId || null, batchId || null]
     );
   } catch (dbErr) {
     console.error('Failed to log WhatsApp to DB:', dbErr.message);
@@ -130,8 +128,7 @@ async function sendWhatsAppInternal({ recipient, message, mediaUrl, templateCode
 
 // --- API ROUTES ---
 
-// POST /api/v1/communication/send-sms
-router.post('/send-sms', async (req, res) => {
+router.post('/send-sms', authenticateToken, async (req, res) => {
   try {
     const { recipient, templateKey, params = {}, customMessage, jobOrderId, batchId } = req.body;
     if (!recipient) {
@@ -148,7 +145,7 @@ router.post('/send-sms', async (req, res) => {
       return res.status(400).json({ error: 'Message body or valid template key is required' });
     }
 
-    const result = await sendSMSInternal({ recipient, message, templateCode: templateKey, jobOrderId, batchId });
+    const result = await sendSMSInternal({ tenantId: req.tenant_id, recipient, message, templateCode: templateKey, jobOrderId, batchId });
     if (!result.success) {
       return res.status(500).json({ error: `SMS delivery failed: ${result.error || 'Gateway error'}` });
     }
@@ -159,15 +156,14 @@ router.post('/send-sms', async (req, res) => {
   }
 });
 
-// POST /api/v1/communication/send-whatsapp
-router.post('/send-whatsapp', async (req, res) => {
+router.post('/send-whatsapp', authenticateToken, async (req, res) => {
   try {
     const { recipient, message, mediaUrl, templateKey, jobOrderId, batchId } = req.body;
     if (!recipient || !message) {
       return res.status(400).json({ error: 'Recipient phone and message body are required' });
     }
 
-    const result = await sendWhatsAppInternal({ recipient, message, mediaUrl, templateCode: templateKey, jobOrderId, batchId });
+    const result = await sendWhatsAppInternal({ tenantId: req.tenant_id, recipient, message, mediaUrl, templateCode: templateKey, jobOrderId, batchId });
     if (!result.success) {
       return res.status(500).json({ error: `WhatsApp delivery failed: ${result.error || 'Gateway error'}` });
     }
@@ -178,11 +174,11 @@ router.post('/send-whatsapp', async (req, res) => {
   }
 });
 
-// GET /api/v1/communication/logs
-router.get('/logs', async (req, res) => {
+router.get('/logs', authenticateToken, async (req, res) => {
   try {
     const logs = await pool.query(
-      `SELECT * FROM communication_logs ORDER BY sent_at DESC LIMIT 100`
+      `SELECT * FROM communication_logs WHERE tenant_id = $1 ORDER BY sent_at DESC LIMIT 100`,
+      [req.tenant_id]
     );
     res.json(logs.rows);
   } catch (err) {

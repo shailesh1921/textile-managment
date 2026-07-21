@@ -10,12 +10,12 @@ router.get('/', authenticateToken, async (req, res) => {
     const q = `
       SELECT g.*, p.trade_name as party_name, f.fabric_name 
       FROM greige_grn g
-      JOIN parties p ON g.party_id = p.party_id
-      JOIN fabrics f ON g.fabric_id = f.fabric_id
+      JOIN parties p ON g.party_id = p.party_id AND p.tenant_id = g.tenant_id
+      JOIN fabrics f ON g.fabric_id = f.fabric_id AND f.tenant_id = g.tenant_id
       WHERE g.tenant_id = $1
       ORDER BY g.created_at DESC
     `;
-    const result = await pool.query(q, [req.user.tenant_id]);
+    const result = await pool.query(q, [req.tenant_id]);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -32,7 +32,7 @@ router.post('/', authenticateToken, async (req, res) => {
       RETURNING *
     `;
     const result = await pool.query(q, [
-      req.user.tenant_id,
+      req.tenant_id,
       grn_no,
       party_id,
       fabric_id,
