@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, ClipboardList, Activity, CheckSquare, 
-  Package, Truck, FileBarChart, ArrowRightLeft, X 
+  Package, Truck, FileBarChart, ArrowRightLeft, X, LogOut, Menu, Search, Bell
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from './ui';
