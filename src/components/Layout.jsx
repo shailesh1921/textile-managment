@@ -4,6 +4,7 @@ import {
   Package, Truck, FileBarChart, ArrowRightLeft, X 
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { cn } from './ui';
 import { BottomNav } from './BottomNav';
 
 const navigation = [
