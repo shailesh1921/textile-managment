@@ -2,28 +2,21 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const { pool } = require('../server/db');
-const authRoutes = require('../server/routes/auth');
-const masterRoutes = require('../server/routes/masters');
-const jobRoutes = require('../server/routes/jobOrders');
-const prodRoutes = require('../server/routes/production');
-const qcRoutes = require('../server/routes/quality');
-const invRoutes = require('../server/routes/inventory');
-const dispatchRoutes = require('../server/routes/dispatch');
-const financeRoutes = require('../server/routes/finance');
-const reportRoutes = require('../server/routes/reports');
-const ratesRoutes = require('../server/routes/rates');
-const grnRoutes = require('../server/routes/grns');
-const commRoutes = require('../server/routes/communication');
-const analyticsRoutes = require('../server/routes/analytics');
-const clientPortalRoutes = require('../server/routes/clientPortal');
-const jobWorkRoutes = require('../server/routes/jobWork');
-const ownerAnalyticsRoutes = require('../server/routes/ownerAnalytics');
-
 const app = express();
-
 app.use(cors());
 app.use(express.json());
+
+const safeRequire = (modulePath) => {
+  try {
+    return require(modulePath);
+  } catch (err) {
+    console.error(`Failed to load module ${modulePath}:`, err.message);
+    return null;
+  }
+};
+
+const dbModule = safeRequire('../server/db');
+const pool = dbModule ? dbModule.pool : null;
 
 app.get('/api/test', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
@@ -31,34 +24,40 @@ app.get('/api/test', (req, res) => {
 
 app.get('/api/debug-db', async (req, res) => {
   try {
+    if (!pool) return res.status(500).json({ error: 'DB pool failed to initialize' });
     const result = await pool.query('SELECT NOW()');
     res.json({ success: true, time: result.rows[0].now, env: process.env.NODE_ENV, hasDbUrl: !!process.env.DATABASE_URL });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message, stack: err.stack });
   }
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/v1', masterRoutes);
-app.use('/api/v1', jobRoutes);
-app.use('/api/v1/production', prodRoutes);
-app.use('/api/v1/qc', qcRoutes);
-app.use('/api/v1/inventory', invRoutes);
-app.use('/api/v1/dispatch', dispatchRoutes);
-app.use('/api/v1/finance', financeRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/v1/rates', ratesRoutes);
-app.use('/api/v1/grns', grnRoutes);
-app.use('/api/v1/communication', commRoutes);
-app.use('/api/v1/analytics', analyticsRoutes);
-app.use('/api/v1/client-portal', clientPortalRoutes);
-app.use('/api/v1/job-work', jobWorkRoutes);
-app.use('/api/v1/owner-analytics', ownerAnalyticsRoutes);
+const mount = (path, modulePath) => {
+  const router = safeRequire(modulePath);
+  if (router) app.use(path, router);
+};
+
+mount('/api/auth', '../server/routes/auth');
+mount('/api/v1', '../server/routes/masters');
+mount('/api/v1', '../server/routes/jobOrders');
+mount('/api/v1/production', '../server/routes/production');
+mount('/api/v1/qc', '../server/routes/quality');
+mount('/api/v1/inventory', '../server/routes/inventory');
+mount('/api/v1/dispatch', '../server/routes/dispatch');
+mount('/api/v1/finance', '../server/routes/finance');
+mount('/api/reports', '../server/routes/reports');
+mount('/api/v1/rates', '../server/routes/rates');
+mount('/api/v1/grns', '../server/routes/grns');
+mount('/api/v1/communication', '../server/routes/communication');
+mount('/api/v1/analytics', '../server/routes/analytics');
+mount('/api/v1/client-portal', '../server/routes/clientPortal');
+mount('/api/v1/job-work', '../server/routes/jobWork');
+mount('/api/v1/owner-analytics', '../server/routes/ownerAnalytics');
 
 // Legacy aliases for existing frontend paths
-app.use('/api', masterRoutes);
-app.use('/api/production', prodRoutes);
-app.use('/api/quality', qcRoutes);
-app.use('/api/inventory', invRoutes);
+mount('/api', '../server/routes/masters');
+mount('/api/production', '../server/routes/production');
+mount('/api/quality', '../server/routes/quality');
+mount('/api/inventory', '../server/routes/inventory');
 
 module.exports = app;
