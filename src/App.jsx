@@ -11,10 +11,11 @@ import Inventory from './pages/inventory/Inventory';
 import Dispatch from './pages/dispatch/Dispatch';
 import Finance from './pages/finance/Finance';
 import Reports from './pages/reports/Reports';
+import JobWork from './pages/jobwork/JobWork';
 
 import { OnboardingWizardModal } from './components/OnboardingWizardModal';
 
-const pages = { dashboard: Dashboard, masters: Masters, jobs: JobOrders, production: Production, quality: Quality, inventory: Inventory, dispatch: Dispatch, finance: Finance, reports: Reports };
+const pages = { dashboard: Dashboard, masters: Masters, jobs: JobOrders, production: Production, jobwork: JobWork, quality: Quality, inventory: Inventory, dispatch: Dispatch, finance: Finance, reports: Reports };
 
 export default function App() {
   const [user, setUser] = useState(null);
