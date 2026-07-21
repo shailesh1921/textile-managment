@@ -98,7 +98,7 @@ export const Card = ({ className, children, title, headerActions, description, .
   );
 };
 
-export const Table = ({ className, headers = [], children, ...props }) => {
+export const Table = ({ className, headers = [], rows, children, ...props }) => {
   return (
     <div className="relative w-full overflow-x-auto rounded-lg border shadow-sm touch-pan-x">
       <table className={cn('w-full caption-bottom text-sm min-w-[600px]', className)} {...props}>
@@ -112,7 +112,19 @@ export const Table = ({ className, headers = [], children, ...props }) => {
           </tr>
         </thead>
         <tbody className="[&_tr:last-child]:border-0 divide-y divide-border/40">
-          {children}
+          {rows ? (
+            rows.map((row, rIdx) => (
+              <tr key={rIdx} className="border-b transition-colors hover:bg-muted/50">
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx} className="p-3.5 sm:p-4 align-middle text-xs sm:text-sm">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : (
+            children
+          )}
         </tbody>
       </table>
     </div>

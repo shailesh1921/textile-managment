@@ -27,14 +27,14 @@ export default function Dashboard() {
         api.get('/api/reports/daily-production'),
         api.get('/api/v1/inventory/stock-dashboard')
       ]);
-      setMetrics(summary);
+      setMetrics(summary || {});
       // Format daily production for chart
       const chartData = (prod || []).slice(0, 14).map(p => ({
-        date: p.shift_date.substring(5, 10), // MM-DD
-        meters: parseFloat(p.output_meters)
+        date: p && p.shift_date ? String(p.shift_date).substring(5, 10) : '',
+        meters: parseFloat(p && p.output_meters ? p.output_meters : 0)
       })).reverse();
       setDailyProd(chartData);
-      setAlerts(stockInfo.alerts || []);
+      setAlerts(stockInfo && stockInfo.alerts ? stockInfo.alerts : []);
     } catch (err) {
       console.error('Error fetching dashboard summary:', err.message);
     } finally {
