@@ -1,0 +1,25 @@
+{
+  "short_name": "TextileERP",
+  "name": "Surat Textile ERP & Dyeing Management",
+  "description": "World-class Multi-Tenant ERP & Dyeing Process Tracking System for Textile Mills",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09060f",
+  "theme_color": "#ff5e36",
+  "display": "standalone",
+  "orientation": "any",
+  "scope": "/"
+}

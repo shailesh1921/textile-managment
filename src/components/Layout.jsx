@@ -4,7 +4,7 @@ import {
   Package, Truck, FileBarChart, ArrowRightLeft, X 
 } from 'lucide-react';
 import { api } from '../lib/api';
-import { cn } from './ui';
+import { BottomNav } from './BottomNav';
 
 const navigation = [
   { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
@@ -53,7 +53,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
             )}
           </div>
           {/* Mobile close button */}
-          <button className="md:hidden text-muted-foreground" onClick={() => setIsMobileMenuOpen(false)}>
+          <button className="md:hidden text-muted-foreground p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" onClick={() => setIsMobileMenuOpen(false)}>
             <X size={20} />
           </button>
         </div>
@@ -68,7 +68,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                 onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
                 title={isSidebarCollapsed ? item.name : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px] touch-manipulation",
                   active 
                     ? "bg-primary/10 text-primary border-r-2 border-primary" 
                     : "text-muted-foreground hover:bg-muted hover:text-foreground border-r-2 border-transparent"
@@ -96,7 +96,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
           <button 
             onClick={() => { api.logout(); window.location.reload(); }} 
             className={cn(
-              "mt-3 flex w-full items-center gap-2 rounded-md text-sm text-destructive hover:bg-destructive/10 px-2 py-1.5 transition-colors",
+              "mt-3 flex w-full items-center gap-2 rounded-md text-sm text-destructive hover:bg-destructive/10 px-2 py-2 transition-colors min-h-[44px]",
               isSidebarCollapsed ? "justify-center" : ""
             )}
             title="Sign Out"
@@ -113,18 +113,18 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
         <header className="flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6 shrink-0">
           <div className="flex items-center gap-4">
             <button 
-              className="text-muted-foreground md:hidden" 
+              className="text-muted-foreground md:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" 
               onClick={() => setIsMobileMenuOpen(true)}
             >
               <Menu size={20} />
             </button>
             <button 
-              className="hidden text-muted-foreground md:block" 
+              className="hidden text-muted-foreground md:block p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" 
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             >
               <Menu size={20} />
             </button>
-            <h1 className="text-lg font-semibold tracking-tight hidden sm:block">
+            <h1 className="text-lg font-semibold tracking-tight">
               {navigation.find(n => n.id === activeTab)?.name || 'Dashboard'}
             </h1>
           </div>
@@ -138,19 +138,22 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                 className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-4 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
-            <button className="relative text-muted-foreground hover:text-foreground transition-colors">
+            <button className="relative text-muted-foreground hover:text-foreground transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
               <Bell size={20} />
-              <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive border border-background"></span>
+              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive border border-background"></span>
             </button>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-4 md:p-6 lg:p-8 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto bg-muted/20 p-4 md:p-6 lg:p-8 custom-scrollbar pb-24 md:pb-6">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>
         </main>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
     </div>
   );
