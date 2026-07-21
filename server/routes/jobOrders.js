@@ -14,7 +14,7 @@ router.get('/job-orders', authenticateToken, async (req, res) => {
              JOIN fabrics f ON jo.fabric_id = f.fabric_id
              LEFT JOIN shades s ON jo.shade_id = s.shade_id
              WHERE jo.tenant_id = $1`;
-    const params = [req.user.tenant_id];
+    const params = [req.tenant_id];
     if (status) { q += ` AND jo.status = $${params.length + 1}`; params.push(status); }
     if (overdue === 'true') { q += ` AND jo.required_delivery_date < CURRENT_DATE AND jo.status NOT IN ('COMPLETED','CANCELLED')`; }
     q += ` ORDER BY jo.job_order_id DESC`;

@@ -22,8 +22,9 @@ export default function Login({ onLoginSuccess }) {
     email: '',
     full_name: '',
     mill_name: '',
+    slug: '',
     gstin: '',
-    register_type: 'TRADER_PORTAL' // or NEW_MILL
+    register_type: 'NEW_MILL'
   });
 
   const handleSignIn = async (e) => {
@@ -34,7 +35,7 @@ export default function Login({ onLoginSuccess }) {
       const data = await api.post('/api/auth/login', signInForm);
       api.setToken(data.access_token);
       api.setUser(data.user);
-      onLoginSuccess(data.user);
+      onLoginSuccess(data.user, data.tenant);
     } catch (err) {
       setError(err.message || 'Invalid credentials');
     } finally {
@@ -48,10 +49,17 @@ export default function Login({ onLoginSuccess }) {
     setError('');
     setSuccess('');
     try {
-      await api.post('/api/auth/register', signUpForm);
-      setSuccess('Account created successfully! Please sign in using your credentials.');
-      setIsSignUp(false);
-      setSignInForm({ username: signUpForm.username, password: signUpForm.password });
+      const slugValue = signUpForm.slug || signUpForm.mill_name.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+      const data = await api.post('/api/auth/signup', {
+        mill_name: signUpForm.mill_name || `${signUpForm.full_name}'s Mill`,
+        owner_name: signUpForm.full_name,
+        email: signUpForm.email,
+        password: signUpForm.password,
+        slug: slugValue
+      });
+      api.setToken(data.access_token);
+      api.setUser(data.user);
+      onLoginSuccess(data.user, data.tenant);
     } catch (err) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -216,23 +224,22 @@ export default function Login({ onLoginSuccess }) {
                 required
               />
 
-              {signUpForm.register_type === 'NEW_MILL' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    label="Mill Name"
-                    value={signUpForm.mill_name}
-                    onChange={e => setSignUpForm({ ...signUpForm, mill_name: e.target.value })}
-                    required
-                  />
-                  <Input
-                    label="GSTIN"
-                    value={signUpForm.gstin}
-                    onChange={e => setSignUpForm({ ...signUpForm, gstin: e.target.value })}
-                    placeholder="24AAAAA0000A1Z5"
-                    required
-                  />
-                </div>
-              )}
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Mill Name"
+                  placeholder="e.g. Om Dyeing Mill"
+                  value={signUpForm.mill_name}
+                  onChange={e => setSignUpForm({ ...signUpForm, mill_name: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Workspace Slug (Unique)"
+                  placeholder="e.g. om-dyeing"
+                  value={signUpForm.slug}
+                  onChange={e => setSignUpForm({ ...signUpForm, slug: e.target.value })}
+                  required
+                />
+              </div>
 
               <Button
                 type="submit"

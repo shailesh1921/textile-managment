@@ -10,7 +10,12 @@ function authenticateToken(req, res, next) {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid or expired token' });
+    if (!user || !user.tenant_id) {
+      return res.status(401).json({ error: 'Tenant context missing or unauthorized' });
+    }
+    // HARD CONSTRAINT 2: Never trust client input for tenant_id. Derive strictly from verified JWT.
     req.user = user;
+    req.tenant_id = user.tenant_id;
     next();
   });
 }
