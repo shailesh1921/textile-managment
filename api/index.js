@@ -25,6 +25,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get('/api/test', (req, res) => {
+  res.json({ ok: true, timestamp: new Date().toISOString() });
+});
+
 app.get('/api/debug-db', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
