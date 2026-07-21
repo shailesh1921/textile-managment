@@ -6,14 +6,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Normalize Vercel rewritten URLs so req.url always begins with /api
-app.use((req, res, next) => {
-  if (!req.url.startsWith('/api')) {
-    req.url = '/api' + (req.url.startsWith('/') ? '' : '/') + req.url;
-  }
-  next();
-});
-
 const safeRequire = (modulePath) => {
   try {
     return require(modulePath);
@@ -62,11 +54,38 @@ mount('/api/v1/client-portal', '../server/routes/clientPortal');
 mount('/api/v1/job-work', '../server/routes/jobWork');
 mount('/api/v1/owner-analytics', '../server/routes/ownerAnalytics');
 
-// Legacy aliases for existing frontend paths
+// Mount without /api prefix in case Vercel rewrites strip /api
+mount('/auth', '../server/routes/auth');
+mount('/v1', '../server/routes/masters');
+mount('/v1', '../server/routes/jobOrders');
+mount('/v1/production', '../server/routes/production');
+mount('/v1/qc', '../server/routes/quality');
+mount('/v1/inventory', '../server/routes/inventory');
+mount('/v1/dispatch', '../server/routes/dispatch');
+mount('/v1/finance', '../server/routes/finance');
+mount('/reports', '../server/routes/reports');
+mount('/v1/rates', '../server/routes/rates');
+mount('/v1/grns', '../server/routes/grns');
+mount('/v1/communication', '../server/routes/communication');
+mount('/v1/analytics', '../server/routes/analytics');
+mount('/v1/client-portal', '../server/routes/clientPortal');
+mount('/v1/job-work', '../server/routes/jobWork');
+mount('/v1/owner-analytics', '../server/routes/ownerAnalytics');
+
 mount('/api', '../server/routes/masters');
 mount('/api/production', '../server/routes/production');
 mount('/api/quality', '../server/routes/quality');
 mount('/api/inventory', '../server/routes/inventory');
+
+// Catch-all debug for unhandled routes
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Route not found in Vercel Express handler',
+    url: req.url,
+    originalUrl: req.originalUrl,
+    method: req.method
+  });
+});
 
 module.exports = (req, res) => {
   return app(req, res);
