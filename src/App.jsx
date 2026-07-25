@@ -65,10 +65,10 @@ export default function App() {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-[#09060f] text-slate-300">
+    <div className="min-h-screen flex items-center justify-center bg-[#F3F1F7] text-slate-700">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 rounded-full border-2 border-[#ff5e36] border-t-transparent animate-spin" />
-        <span className="text-sm font-medium">Loading Surat Textile ERP...</span>
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <span className="text-sm font-semibold tracking-wide text-slate-600">Loading Surat Textile ERP...</span>
       </div>
     </div>
   );

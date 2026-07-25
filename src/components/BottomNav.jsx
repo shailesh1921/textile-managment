@@ -14,7 +14,7 @@ const bottomTabs = [
 
 export function BottomNav({ activeTab, setActiveTab }) {
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0d0914]/95 backdrop-blur-lg border-t border-white/10 px-2 py-1.5 flex items-center justify-around shadow-2xl pb-safe">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-100 px-2 py-1.5 flex items-center justify-around shadow-lg pb-safe">
       {bottomTabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
@@ -23,14 +23,14 @@ export function BottomNav({ activeTab, setActiveTab }) {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "flex flex-col items-center justify-center min-h-[48px] min-w-[48px] px-3 py-1 rounded-xl transition-all duration-200 touch-manipulation",
+              "flex flex-col items-center justify-center min-h-[48px] min-w-[48px] px-3 py-1 rounded-[10px] transition-all duration-200 touch-manipulation",
               isActive 
-                ? "text-[#ff5e36] bg-[#ff5e36]/10 font-bold scale-105" 
-                : "text-slate-400 hover:text-slate-200"
+                ? "text-primary bg-primary/10 font-bold scale-105" 
+                : "text-slate-400 hover:text-slate-700"
             )}
           >
-            <Icon size={20} className={isActive ? "stroke-[2.5]" : "stroke-[1.75]"} />
-            <span className="text-[10px] mt-0.5 tracking-tight font-medium">{tab.name}</span>
+            <Icon size={18} className={isActive ? "stroke-[2.5]" : "stroke-[2.0]"} />
+            <span className="text-[10px] mt-0.5 tracking-tight font-semibold">{tab.name}</span>
           </button>
         );
       })}

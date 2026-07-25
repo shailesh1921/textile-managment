@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../lib/api';
 import { Button, Input, Select, Badge } from '../components/ui';
-import { Lock, User, Mail, Building, Shield, ChevronRight } from 'lucide-react';
+import { Lock, User, Mail, Building, Shield, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { HlsBackgroundVideo } from '../components/HlsBackgroundVideo';
 
 export default function Login({ onLoginSuccess }) {
@@ -9,6 +9,7 @@ export default function Login({ onLoginSuccess }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Sign In Form State
   const [signInForm, setSignInForm] = useState({
@@ -69,126 +70,124 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-[#09060f] text-slate-100 overflow-hidden font-sans relative">
+    <div className="min-h-screen bg-[#F3F1F7] flex items-center justify-center p-4 md:p-6 font-sans relative overflow-hidden">
       
-      {/* Background Subtle Grain & Ambient Glows */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,94,54,0.15),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(158,42,43,0.1),transparent_50%)] pointer-events-none z-0" />
+      {/* Live HLS Streaming Video with highly-tinted soft lavender overlay */}
+      <HlsBackgroundVideo 
+        src="https://stream.mux.com/NcU3HlHeF7CUL86azTTzpy3Tlb00d6iF3BmCdFslMJYM.m3u8" 
+        poster="/hero.jpg" 
+        overlayColor="bg-[#F3F1F7]/95" 
+      />
 
-      {/* Left Panel: Cinematic 3D Sunset Scene with Live HLS Video */}
-      <div 
-        className="lg:col-span-7 relative hidden lg:flex flex-col justify-between p-12 overflow-hidden bg-cover bg-center select-none"
-      >
-        <HlsBackgroundVideo 
-          src="https://stream.mux.com/NcU3HlHeF7CUL86azTTzpy3Tlb00d6iF3BmCdFslMJYM.m3u8" 
-          poster="/hero.jpg" 
-          overlayColor="bg-black/50" 
-        />
+      {/* Decorative Accent Bar Left */}
+      <div className="hidden lg:block absolute left-12 xl:left-24 top-1/4 bottom-1/4 w-[6px] bg-slate-300/40 rounded-full z-10" />
 
-        {/* Soft Sunset Color Overlay Gradients to Blend Image */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#09060f] via-transparent to-black/30 mix-blend-multiply z-10 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#09060f] z-10 pointer-events-none" />
+      {/* Decorative Accent Bar Right */}
+      <div className="hidden lg:block absolute right-12 xl:right-24 top-1/4 bottom-1/4 w-[6px] bg-slate-300/40 rounded-full z-10" />
 
-        {/* Brand Tag / Logo */}
-        <div className="z-20 flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#ff5e36] to-[#9e2a2b] flex items-center justify-center shadow-lg shadow-[#ff5e36]/30">
-            <span className="font-black text-white text-base">S</span>
-          </div>
-          <span className="font-bold text-white text-base tracking-wide uppercase">Sarv Uttam Fabrics</span>
-        </div>
-
-        {/* Cozy Scenic Info */}
-        <div className="z-20 max-w-lg mt-auto flex flex-col gap-3">
-          <Badge status="approved">Surat Dyeing Mill Suite</Badge>
-          <h1 className="text-4xl font-extrabold text-white leading-tight tracking-tight drop-shadow-md">
-            Connecting Surat's grey weavers and processing houses.
-          </h1>
-          <p className="text-slate-300 text-sm leading-relaxed drop-shadow">
-            Track lot cards from grey fabric inwarding, spectrophotometer CIELAB color match, recipe chemical dispensing logs, to automatic WhatsApp dispatch alerts.
-          </p>
-        </div>
-      </div>
-
-      {/* Right Panel: Glassmorphism Login / Signup Card */}
-      <div className="lg:col-span-5 flex items-center justify-center p-6 md:p-12 z-20">
-        <div className="w-full max-w-md bg-white/[0.03] border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-8 flex flex-col gap-6 relative overflow-hidden">
+      {/* Outer framed container (Subtle nested border effect) */}
+      <div className="border border-slate-300/40 bg-white/20 p-4 rounded-[20px] shadow-sm max-w-md w-full relative z-20 transition-all duration-300">
+        
+        {/* Inner floating card */}
+        <div className="bg-white border border-slate-100/50 rounded-[14px] shadow-xl p-6 sm:p-8 flex flex-col gap-5">
           
-          {/* Card Accent Top Glow */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#ff5e36] to-[#9e2a2b]" />
+          {/* Centered Brand Logo */}
+          <div className="flex flex-col items-center gap-1.5 mb-1">
+            <div className="w-10 h-10 rounded-[10px] bg-[#6B4EFF] flex items-center justify-center shadow-md">
+              <span className="font-black text-white text-lg">S</span>
+            </div>
+            <span className="font-extrabold text-slate-800 text-xs tracking-[0.2em] uppercase">SARV UTTAM FABRICS</span>
+          </div>
 
-          {/* Heading */}
+          {/* Centered Welcome Heading */}
           <div className="text-center">
-            <h2 className="text-2xl font-black text-white">{isSignUp ? 'Join the Mill' : 'Welcome Back'}</h2>
-            <p className="text-slate-400 text-xs mt-1.5">
-              {isSignUp ? 'Create your platform account' : 'Sign in to access Surat ERP operations'}
+            <h2 className="text-xl font-bold text-slate-900">{isSignUp ? 'Create Account' : 'Welcome Back'}</h2>
+            <p className="text-slate-500 text-xs mt-1">
+              {isSignUp ? 'Fill in your mill details to join' : 'Sign in to continue'}
             </p>
           </div>
 
-          {/* Tabs */}
-          <div className="grid grid-cols-2 bg-white/[0.04] p-1.5 rounded-xl border border-white/5">
+          {/* Form Tabs */}
+          <div className="grid grid-cols-2 bg-slate-100/80 p-1 rounded-[10px] border border-slate-200/40">
             <button 
+              type="button"
               onClick={() => { setIsSignUp(false); setError(''); }}
-              className={`py-2 text-xs font-bold rounded-lg transition-all ${!isSignUp ? 'bg-[#ff5e36] text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              className={`py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
+                !isSignUp 
+                  ? 'bg-white text-[#6B4EFF] shadow-sm font-extrabold' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
             >
               Sign In
             </button>
             <button 
+              type="button"
               onClick={() => { setIsSignUp(true); setError(''); }}
-              className={`py-2 text-xs font-bold rounded-lg transition-all ${isSignUp ? 'bg-[#ff5e36] text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              className={`py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
+                isSignUp 
+                  ? 'bg-white text-[#6B4EFF] shadow-sm font-extrabold' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
             >
               Create Account
             </button>
           </div>
 
           {error && (
-            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs p-3 rounded-lg font-medium animate-shake">
+            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs p-3 rounded-[10px] font-medium">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs p-3 rounded-lg font-medium">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs p-3 rounded-[10px] font-medium">
               {success}
             </div>
           )}
 
-          {/* Form */}
+          {/* Input Form Fields */}
           {!isSignUp ? (
-            <form onSubmit={handleSignIn} className="flex flex-col gap-4 text-xs">
+            <form onSubmit={handleSignIn} className="flex flex-col gap-4">
+              <Input
+                label="Username"
+                type="text"
+                value={signInForm.username}
+                onChange={e => setSignInForm({ ...signInForm, username: e.target.value })}
+                placeholder="e.g. admin"
+                required
+                icon={<User size={16} />}
+              />
+              
               <div className="relative">
-                <User className="absolute left-3 top-[34px] text-slate-500" size={14} />
-                <Input
-                  label="Username"
-                  type="text"
-                  value={signInForm.username}
-                  onChange={e => setSignInForm({ ...signInForm, username: e.target.value })}
-                  placeholder="e.g. admin"
-                  required
-                  className="pl-9 bg-white/[0.02] border-white/10 text-white focus:border-[#ff5e36] focus:ring-[#ff5e36]"
-                />
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-[34px] text-slate-500" size={14} />
                 <Input
                   label="Password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={signInForm.password}
                   onChange={e => setSignInForm({ ...signInForm, password: e.target.value })}
                   placeholder="••••••••"
                   required
-                  className="pl-9 bg-white/[0.02] border-white/10 text-white focus:border-[#ff5e36] focus:ring-[#ff5e36]"
+                  icon={<Lock size={16} />}
+                  className="pr-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-[28px] text-slate-400 hover:text-slate-600 focus:outline-none flex items-center justify-center min-h-[36px] min-w-[36px]"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
 
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 py-2.5 bg-gradient-to-r from-[#ff5e36] to-[#9e2a2b] hover:from-[#ff734f] hover:to-[#b13536] text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-1 border-0"
+                className="w-full bg-[#6B4EFF] hover:bg-[#573fd6] text-white font-bold rounded-[10px] transition-all flex items-center justify-center gap-1 border-0 mt-1 min-h-[44px]"
               >
-                {loading ? 'Entering...' : 'Enter Console'} <ChevronRight size={14} />
+                {loading ? 'Processing...' : 'Sign In'} <ChevronRight size={14} />
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleSignUp} className="flex flex-col gap-3 text-xs max-h-[50vh] overflow-y-auto pr-1">
+            <form onSubmit={handleSignUp} className="flex flex-col gap-3 max-h-[42vh] overflow-y-auto pr-1">
               <Select
                 label="Registration Type"
                 value={signUpForm.register_type}
@@ -239,7 +238,7 @@ export default function Login({ onLoginSuccess }) {
                   required
                 />
                 <Input
-                  label="Workspace Slug (Unique)"
+                  label="Workspace Slug"
                   placeholder="e.g. om-dyeing"
                   value={signUpForm.slug}
                   onChange={e => setSignUpForm({ ...signUpForm, slug: e.target.value })}
@@ -250,7 +249,7 @@ export default function Login({ onLoginSuccess }) {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 py-2.5 bg-gradient-to-r from-[#ff5e36] to-[#9e2a2b] hover:from-[#ff734f] hover:to-[#b13536] text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-1 border-0"
+                className="w-full bg-[#6B4EFF] hover:bg-[#573fd6] text-white font-bold rounded-[10px] transition-all flex items-center justify-center gap-1 border-0 mt-1 min-h-[44px]"
               >
                 {loading ? 'Creating...' : 'Register Profile'} <ChevronRight size={14} />
               </Button>
@@ -258,33 +257,36 @@ export default function Login({ onLoginSuccess }) {
           )}
 
           {/* Quick Demo Logins Info */}
-          <div className="pt-4 border-t border-white/10 text-center flex flex-col gap-2">
+          <div className="pt-4 border-t border-slate-100 text-center flex flex-col gap-2 mt-1">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Demo Mill Accounts</span>
-            <div className="flex justify-center gap-4 text-xs font-semibold text-slate-300">
-              <button 
-                onClick={() => setSignInForm({ username: 'admin', password: 'admin123' })}
-                className="hover:text-[#ff5e36] border border-white/10 bg-white/[0.02] px-2 py-1 rounded transition-all"
-              >
-                admin
-              </button>
-              <button 
-                onClick={() => setSignInForm({ username: 'prod_mgr', password: 'manager123' })}
-                className="hover:text-[#ff5e36] border border-white/10 bg-white/[0.02] px-2 py-1 rounded transition-all"
-              >
-                prod_mgr
-              </button>
-              <button 
-                onClick={() => setSignInForm({ username: 'qc1', password: 'qc123' })}
-                className="hover:text-[#ff5e36] border border-white/10 bg-white/[0.02] px-2 py-1 rounded transition-all"
-              >
-                qc1
-              </button>
+            <div className="flex justify-center gap-3">
+              {['admin', 'prod_mgr', 'qc1'].map(user => (
+                <button 
+                  type="button"
+                  key={user}
+                  onClick={() => {
+                    const creds = {
+                      admin: { username: 'admin', password: 'admin123' },
+                      prod_mgr: { username: 'prod_mgr', password: 'manager123' },
+                      qc1: { username: 'qc1', password: 'qc123' }
+                    }[user];
+                    setSignInForm(creds);
+                  }}
+                  className="text-xs text-slate-600 hover:text-[#6B4EFF] border border-slate-200 bg-slate-50 px-2.5 py-1 rounded-md transition-all font-semibold"
+                >
+                  {user}
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* Version Footer */}
+          <div className="text-center text-[10px] text-slate-400 font-medium tracking-wide">
+            v1.2.0 • Surat Textile Management Suite
           </div>
 
         </div>
       </div>
-
     </div>
   );
 }

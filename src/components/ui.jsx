@@ -10,18 +10,18 @@ export function cn(...inputs) {
 
 export const Button = React.forwardRef(({ className, variant = 'default', size = 'default', ...props }, ref) => {
   const variants = {
-    default: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm active:scale-[0.98]',
-    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm active:scale-[0.98]',
-    outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground shadow-sm active:scale-[0.98]',
+    default: 'bg-primary text-primary-foreground hover:bg-primary/95 shadow-sm active:scale-[0.98]',
+    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/95 shadow-sm active:scale-[0.98]',
+    outline: 'border border-input bg-background hover:bg-[#F3F1F7]/40 hover:text-primary shadow-sm active:scale-[0.98]',
     secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm active:scale-[0.98]',
-    ghost: 'hover:bg-accent hover:text-accent-foreground active:scale-[0.98]',
+    ghost: 'hover:bg-secondary hover:text-primary active:scale-[0.98]',
     link: 'text-primary underline-offset-4 hover:underline',
   };
   const sizes = {
     default: 'h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] px-4 py-2 text-sm',
     xs: 'h-8 min-h-[32px] px-2.5 text-xs',
-    sm: 'h-10 sm:h-8 min-h-[40px] sm:min-h-[32px] rounded-md px-3 text-xs',
-    lg: 'h-12 rounded-md px-8 text-base min-h-[48px]',
+    sm: 'h-10 sm:h-8 min-h-[40px] sm:min-h-[32px] px-3 text-xs',
+    lg: 'h-12 px-8 text-base min-h-[48px]',
     icon: 'h-11 w-11 sm:h-9 sm:w-9 min-h-[44px] min-w-[44px]',
   };
 
@@ -29,7 +29,7 @@ export const Button = React.forwardRef(({ className, variant = 'default', size =
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 touch-manipulation select-none',
+        'inline-flex items-center justify-center whitespace-nowrap rounded-[10px] text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 touch-manipulation select-none',
         variants[variant],
         sizes[size],
         className
@@ -40,19 +40,27 @@ export const Button = React.forwardRef(({ className, variant = 'default', size =
 });
 Button.displayName = 'Button';
 
-export const Input = React.forwardRef(({ className, type = 'text', label, ...props }, ref) => {
+export const Input = React.forwardRef(({ className, type = 'text', label, icon, ...props }, ref) => {
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      {label && <label className="text-xs font-semibold text-foreground/80 tracking-wide">{label}</label>}
-      <input
-        type={type}
-        className={cn(
-          'flex h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-          className
+      {label && <label className="text-xs font-semibold text-slate-700 tracking-wide">{label}</label>}
+      <div className="relative flex items-center">
+        {icon && (
+          <div className="absolute left-3 text-slate-400 pointer-events-none flex items-center justify-center">
+            {icon}
+          </div>
         )}
-        ref={ref}
-        {...props}
-      />
+        <input
+          type={type}
+          className={cn(
+            'flex h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+            icon ? 'pl-9' : '',
+            className
+          )}
+          ref={ref}
+          {...props}
+        />
+      </div>
     </div>
   );
 });
@@ -61,17 +69,17 @@ Input.displayName = 'Input';
 export const Select = React.forwardRef(({ className, label, options = [], ...props }, ref) => {
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      {label && <label className="text-xs font-semibold text-foreground/80 tracking-wide">{label}</label>}
+      {label && <label className="text-xs font-semibold text-slate-700 tracking-wide">{label}</label>}
       <select
         className={cn(
-          'flex h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+          'flex h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-all focus:border-primary focus:ring-1 focus:ring-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
           className
         )}
         ref={ref}
         {...props}
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-background text-foreground">
+          <option key={opt.value} value={opt.value} className="bg-white text-slate-900">
             {opt.label}
           </option>
         ))}
@@ -83,40 +91,47 @@ Select.displayName = 'Select';
 
 export const Card = ({ className, children, title, headerActions, description, ...props }) => {
   return (
-    <div className={cn('rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden', className)} {...props}>
+    <div className={cn('rounded-[10px] border border-slate-100 bg-white text-slate-900 shadow-sm overflow-hidden', className)} {...props}>
       {(title || description || headerActions) && (
-        <div className="flex flex-col space-y-1.5 p-4 sm:p-6 border-b border-border/50">
+        <div className="flex flex-col space-y-1.5 p-4 sm:p-5 border-b border-slate-100">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="font-semibold leading-none tracking-tight text-base sm:text-lg">{title}</h3>
+            <h3 className="font-bold leading-none tracking-tight text-base text-slate-900">{title}</h3>
             {headerActions && <div>{headerActions}</div>}
           </div>
-          {description && <p className="text-xs sm:text-sm text-muted-foreground">{description}</p>}
+          {description && <p className="text-xs text-slate-500">{description}</p>}
         </div>
       )}
-      <div className="p-4 sm:p-6">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </div>
   );
 };
 
 export const Table = ({ className, headers = [], rows, children, ...props }) => {
   return (
-    <div className="relative w-full overflow-x-auto rounded-lg border shadow-sm touch-pan-x">
+    <div className="relative w-full overflow-x-auto rounded-[10px] border border-slate-100 bg-white shadow-sm touch-pan-x">
       <table className={cn('w-full caption-bottom text-sm min-w-[600px]', className)} {...props}>
-        <thead className="[&_tr]:border-b bg-muted/50">
-          <tr className="border-b transition-colors hover:bg-muted/50">
+        <thead className="[&_tr]:border-b bg-[#F9F8FC]">
+          <tr className="border-b border-slate-100 transition-colors">
             {headers.map((h, i) => (
-              <th key={i} className="h-10 px-4 text-left align-middle font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                {h}
+              <th key={i} className="h-10 px-4 text-left align-middle font-bold text-slate-500 text-xs uppercase tracking-wider select-none">
+                <div className="flex items-center gap-1">
+                  <span>{h}</span>
+                  {/* Small sort indicator triangles */}
+                  <span className="flex flex-col text-[8px] leading-[6px] text-slate-400 font-normal">
+                    <span>▲</span>
+                    <span>▼</span>
+                  </span>
+                </div>
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="[&_tr:last-child]:border-0 divide-y divide-border/40">
+        <tbody className="divide-y divide-slate-100 [&_tr:last-child]:border-0">
           {rows ? (
             rows.map((row, rIdx) => (
-              <tr key={rIdx} className="border-b transition-colors hover:bg-muted/50">
+              <tr key={rIdx} className="border-b border-slate-100 transition-colors hover:bg-slate-50/50 even:bg-slate-50/20">
                 {row.map((cell, cIdx) => (
-                  <td key={cIdx} className="p-3.5 sm:p-4 align-middle text-xs sm:text-sm">
+                  <td key={cIdx} className="p-3.5 sm:p-4 align-middle text-xs text-slate-700">
                     {cell}
                   </td>
                 ))}
@@ -132,11 +147,11 @@ export const Table = ({ className, headers = [], rows, children, ...props }) => 
 };
 
 export const TableRow = ({ className, ...props }) => (
-  <tr className={cn('border-b transition-colors hover:bg-muted/50', className)} {...props} />
+  <tr className={cn('border-b border-slate-100 transition-colors hover:bg-slate-50/50 even:bg-slate-50/20', className)} {...props} />
 );
 
 export const TableCell = ({ className, ...props }) => (
-  <td className={cn('p-3.5 sm:p-4 align-middle text-xs sm:text-sm', className)} {...props} />
+  <td className={cn('p-3.5 sm:p-4 align-middle text-xs text-slate-700', className)} {...props} />
 );
 
 export const Badge = ({ className, variant = 'default', status, children, ...props }) => {

@@ -157,8 +157,12 @@ export default function JobWork() {
               </Button>
             </div>
           ) : orders.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              No job-work dispatch orders recorded yet.
+            <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-slate-200 rounded-[10px] bg-slate-50/30">
+              <ArrowRightLeft size={36} className="text-slate-400 mb-2.5" />
+              <h4 className="font-bold text-sm text-slate-800 mb-1">No Dispatch Orders</h4>
+              <p className="text-xs text-slate-500 max-w-xs">
+                No job-work dispatch orders recorded yet. Click above to create one.
+              </p>
             </div>
           ) : (
             <Table
@@ -197,8 +201,12 @@ export default function JobWork() {
           </div>
 
           {units.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              No job-work vendor units configured yet.
+            <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-slate-200 rounded-[10px] bg-slate-50/30">
+              <Building2 size={36} className="text-slate-400 mb-2.5" />
+              <h4 className="font-bold text-sm text-slate-800 mb-1">No Vendors Registered</h4>
+              <p className="text-xs text-slate-500 max-w-xs">
+                No job-work vendor units configured yet. Click above to add a vendor.
+              </p>
             </div>
           ) : (
             <Table
