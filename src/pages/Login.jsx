@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../lib/api';
 import { Button, Input, Select, Badge } from '../components/ui';
 import { Lock, User, Mail, Building, Shield, ChevronRight } from 'lucide-react';
+import { HlsBackgroundVideo } from '../components/HlsBackgroundVideo';
 
 export default function Login({ onLoginSuccess }) {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -73,14 +74,19 @@ export default function Login({ onLoginSuccess }) {
       {/* Background Subtle Grain & Ambient Glows */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,94,54,0.15),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(158,42,43,0.1),transparent_50%)] pointer-events-none z-0" />
 
-      {/* Left Panel: Cinematic 3D Sunset Scene */}
+      {/* Left Panel: Cinematic 3D Sunset Scene with Live HLS Video */}
       <div 
         className="lg:col-span-7 relative hidden lg:flex flex-col justify-between p-12 overflow-hidden bg-cover bg-center select-none"
-        style={{ backgroundImage: `url('/hero.jpg')` }}
       >
+        <HlsBackgroundVideo 
+          src="https://stream.mux.com/NcU3HlHeF7CUL86azTTzpy3Tlb00d6iF3BmCdFslMJYM.m3u8" 
+          poster="/hero.jpg" 
+          overlayColor="bg-black/50" 
+        />
+
         {/* Soft Sunset Color Overlay Gradients to Blend Image */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#09060f] via-transparent to-black/30 mix-blend-multiply z-10" />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#09060f] z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#09060f] via-transparent to-black/30 mix-blend-multiply z-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#09060f] z-10 pointer-events-none" />
 
         {/* Brand Tag / Logo */}
         <div className="z-20 flex items-center gap-2">
