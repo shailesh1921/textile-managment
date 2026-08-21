@@ -437,7 +437,7 @@ export default function Dispatch() {
                             newLines[index].no_of_rolls = parseInt(e.target.value) || 1;
                             setChallanForm({ ...challanForm, lines: newLines });
                           }}
-                          className="w-16 border rounded px-1.5 py-0.5 text-center"
+                          className="w-16 border border-slate-200 bg-white text-slate-900 rounded px-1.5 py-0.5 text-center text-xs font-semibold"
                         />
                       </td>
                     </tr>

@@ -324,7 +324,7 @@ export default function Quality() {
                           copy[idx].severity = e.target.value;
                           setAuditForm({ ...auditForm, defects: copy });
                         }}
-                        className="border rounded px-1.5 py-0.5"
+                        className="border border-slate-200 bg-white text-slate-900 rounded px-2 py-1 text-xs"
                       >
                         <option value="MINOR">Minor</option>
                         <option value="MAJOR">Major</option>
@@ -340,7 +340,7 @@ export default function Quality() {
                           copy[idx].points_assigned = e.target.value;
                           setAuditForm({ ...auditForm, defects: copy });
                         }}
-                        className="w-12 border rounded text-center"
+                        className="w-16 border border-slate-200 bg-white text-slate-900 rounded text-center px-1 py-1 text-xs font-semibold"
                       />
                     </td>
                     <td className="px-6 py-1.5">
@@ -351,7 +351,7 @@ export default function Quality() {
                           copy[idx].location = e.target.value;
                           setAuditForm({ ...auditForm, defects: copy });
                         }}
-                        className="border rounded px-1.5 py-0.5 w-24"
+                        className="border border-slate-200 bg-white text-slate-900 rounded px-2 py-1 text-xs w-28"
                         placeholder="e.g. 50m"
                       />
                     </td>
@@ -448,7 +448,7 @@ export default function Quality() {
                       next[index].actual_value = e.target.value;
                       setLabForm({ ...labForm, tests: next });
                     }}
-                    className="border rounded px-1.5 py-0.5 text-center font-bold"
+                    className="border border-slate-200 bg-white text-slate-900 rounded px-2 py-1 text-center font-bold text-xs"
                     placeholder="Enter value"
                     required
                   />
@@ -462,7 +462,7 @@ export default function Quality() {
                       next[index].result = e.target.value;
                       setLabForm({ ...labForm, tests: next });
                     }}
-                    className="border rounded px-1 py-0.5"
+                    className="border border-slate-200 bg-white text-slate-900 rounded px-2 py-1 text-xs"
                   >
                     <option value="PASS">Pass</option>
                     <option value="FAIL">Fail</option>

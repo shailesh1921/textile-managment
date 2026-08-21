@@ -10,18 +10,21 @@ export function cn(...inputs) {
 
 export const Button = React.forwardRef(({ className, variant = 'default', size = 'default', ...props }, ref) => {
   const variants = {
-    default: 'bg-primary text-primary-foreground hover:bg-primary/95 shadow-sm active:scale-[0.98]',
-    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/95 shadow-sm active:scale-[0.98]',
-    outline: 'border border-input bg-background hover:bg-[#F3F1F7]/40 hover:text-primary shadow-sm active:scale-[0.98]',
-    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm active:scale-[0.98]',
-    ghost: 'hover:bg-secondary hover:text-primary active:scale-[0.98]',
+    default: 'bg-primary text-white hover:bg-primary/95 shadow-sm active:scale-[0.98]',
+    primary: 'bg-primary text-white hover:bg-primary/95 shadow-sm active:scale-[0.98]',
+    destructive: 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm active:scale-[0.98]',
+    danger: 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm active:scale-[0.98]',
+    success: 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm active:scale-[0.98]',
+    outline: 'border border-slate-200 bg-white text-slate-700 hover:bg-[#F3F1F7]/60 hover:text-primary shadow-sm active:scale-[0.98]',
+    secondary: 'bg-slate-100 text-slate-700 hover:bg-slate-200 shadow-sm active:scale-[0.98]',
+    ghost: 'hover:bg-slate-100 hover:text-slate-900 text-slate-700 active:scale-[0.98]',
     link: 'text-primary underline-offset-4 hover:underline',
   };
   const sizes = {
-    default: 'h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] px-4 py-2 text-sm',
-    xs: 'h-8 min-h-[32px] px-2.5 text-xs',
-    sm: 'h-10 sm:h-8 min-h-[40px] sm:min-h-[32px] px-3 text-xs',
-    lg: 'h-12 px-8 text-base min-h-[48px]',
+    default: 'h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] px-4 py-2 text-sm font-medium',
+    xs: 'h-8 min-h-[32px] px-2.5 text-xs font-medium',
+    sm: 'h-10 sm:h-8 min-h-[40px] sm:min-h-[32px] px-3 text-xs font-medium',
+    lg: 'h-12 px-8 text-base min-h-[48px] font-semibold',
     icon: 'h-11 w-11 sm:h-9 sm:w-9 min-h-[44px] min-w-[44px]',
   };
 
@@ -30,7 +33,7 @@ export const Button = React.forwardRef(({ className, variant = 'default', size =
       ref={ref}
       className={cn(
         'inline-flex items-center justify-center whitespace-nowrap rounded-[10px] text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 touch-manipulation select-none',
-        variants[variant],
+        variants[variant] || variants.default,
         sizes[size],
         className
       )}
@@ -53,7 +56,7 @@ export const Input = React.forwardRef(({ className, type = 'text', label, icon, 
         <input
           type={type}
           className={cn(
-            'flex h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+            'flex h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
             icon ? 'pl-9' : '',
             className
           )}
@@ -72,7 +75,7 @@ export const Select = React.forwardRef(({ className, label, options = [], ...pro
       {label && <label className="text-xs font-semibold text-slate-700 tracking-wide">{label}</label>}
       <select
         className={cn(
-          'flex h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-all focus:border-primary focus:ring-1 focus:ring-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+          'flex h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-all focus:border-primary focus:ring-1 focus:ring-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
           className
         )}
         ref={ref}
@@ -88,6 +91,23 @@ export const Select = React.forwardRef(({ className, label, options = [], ...pro
   );
 });
 Select.displayName = 'Select';
+
+export const Textarea = React.forwardRef(({ className, label, ...props }, ref) => {
+  return (
+    <div className="flex flex-col gap-1.5 w-full">
+      {label && <label className="text-xs font-semibold text-slate-700 tracking-wide">{label}</label>}
+      <textarea
+        className={cn(
+          'flex min-h-[80px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    </div>
+  );
+});
+Textarea.displayName = 'Textarea';
 
 export const Card = ({ className, children, title, headerActions, description, ...props }) => {
   return (
@@ -190,15 +210,15 @@ export const Modal = ({ isOpen, onClose, title, description, children, className
   return (
     <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className={cn('fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-5 sm:p-6 shadow-2xl duration-200 max-h-[92vh] overflow-y-auto rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95', className)}>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className={cn('fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-slate-200 bg-white text-slate-900 p-5 sm:p-6 shadow-2xl duration-200 max-h-[92vh] overflow-y-auto rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95', className)}>
           <div className="flex flex-col space-y-1 text-left">
-            <DialogPrimitive.Title className="text-base sm:text-lg font-bold leading-none tracking-tight">{title}</DialogPrimitive.Title>
-            {description && <DialogPrimitive.Description className="text-xs sm:text-sm text-muted-foreground">{description}</DialogPrimitive.Description>}
+            <DialogPrimitive.Title className="text-base sm:text-lg font-bold leading-none tracking-tight text-slate-900">{title}</DialogPrimitive.Title>
+            {description && <DialogPrimitive.Description className="text-xs sm:text-sm text-slate-500">{description}</DialogPrimitive.Description>}
           </div>
           {children}
-          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full p-2 opacity-70 transition-opacity hover:opacity-100 focus:outline-none min-h-[44px] min-w-[44px] flex items-center justify-center">
-            <X className="h-5 w-5 text-muted-foreground" />
+          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full p-2 opacity-70 transition-opacity hover:opacity-100 focus:outline-none min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700">
+            <X className="h-5 w-5" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>
