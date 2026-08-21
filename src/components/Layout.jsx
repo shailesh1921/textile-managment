@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, ClipboardList, Activity, CheckSquare, 
-  Package, Truck, FileBarChart, ArrowRightLeft, X, LogOut, Menu, Search, Bell, Settings, Globe
+  Package, Truck, FileBarChart, ArrowRightLeft, X, LogOut, Menu, Search, Bell, Settings, Globe,
+  ShoppingCart, TrendingUp
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from './ui';
@@ -15,7 +16,9 @@ const navigation = [
   { id: 'jobwork', name: 'Job-Work Dispatches', icon: ArrowRightLeft },
   { id: 'quality', name: 'Quality Control', icon: CheckSquare },
   { id: 'inventory', name: 'Inventory', icon: Package },
+  { id: 'procurement', name: 'Procurement', icon: ShoppingCart },
   { id: 'dispatch', name: 'Dispatch & GST', icon: Truck },
+  { id: 'sales', name: 'Sales', icon: TrendingUp },
   { id: 'finance', name: 'Finance', icon: FileBarChart },
   { id: 'reports', name: 'Reports', icon: FileBarChart },
 ];

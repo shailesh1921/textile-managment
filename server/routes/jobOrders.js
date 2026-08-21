@@ -220,4 +220,115 @@ router.get('/lots/:lotId/stages', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/lots/:lotId/takas', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM lot_takas WHERE lot_id = $1 AND tenant_id = $2 ORDER BY taka_no`,
+      [req.params.lotId, req.tenant_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/lots/:lotId/takas', authenticateToken, async (req, res) => {
+  const { takas } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const inserted = [];
+    for (const t of takas) {
+      const result = await client.query(
+        `INSERT INTO lot_takas (tenant_id, lot_id, taka_no, meters, weight_kg, grade, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [req.tenant_id, req.params.lotId, t.taka_no, t.meters, t.weight_kg, t.grade || 'FRESH', t.remarks]
+      );
+      inserted.push(result.rows[0]);
+    }
+    await client.query('COMMIT');
+    res.status(201).json(inserted);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/lots/:lotId/lot-card-pdf', authenticateToken, async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit');
+    const QRCode = require('qrcode');
+    const lotId = req.params.lotId;
+    
+    const lotRes = await pool.query(
+      `SELECT l.*, jo.job_order_no, p.trade_name as party_name, f.fabric_name, s.shade_name
+       FROM lots l
+       JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id
+       JOIN parties p ON jo.party_id = p.party_id AND p.tenant_id = l.tenant_id
+       JOIN fabrics f ON jo.fabric_id = f.fabric_id AND f.tenant_id = l.tenant_id
+       LEFT JOIN shades s ON jo.shade_id = s.shade_id AND s.tenant_id = l.tenant_id
+       WHERE l.lot_id = $1 AND l.tenant_id = $2`,
+      [lotId, req.tenant_id]
+    );
+    
+    if (lotRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Lot not found' });
+    }
+    const lot = lotRes.rows[0];
+
+    const takasRes = await pool.query(
+      `SELECT * FROM lot_takas WHERE lot_id = $1 AND tenant_id = $2 ORDER BY taka_no`,
+      [lotId, req.tenant_id]
+    );
+    
+    const stagesRes = await pool.query(
+      `SELECT * FROM lot_process_stages WHERE lot_id = $1 AND tenant_id = $2 ORDER BY sequence_no`,
+      [lotId, req.tenant_id]
+    );
+
+    const doc = new PDFDocument({ margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="lot-card-${lotId}.pdf"`);
+    doc.pipe(res);
+
+    doc.font('Helvetica-Bold').fontSize(20).text('LOT CARD', { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(12).font('Helvetica-Bold').text(`Lot No: ${lot.lot_no}`);
+    doc.font('Helvetica').text(`Barcode: ${lot.barcode_value}`);
+    doc.text(`Status: ${lot.current_status}`);
+    doc.text(`Job Order: ${lot.job_order_no}`);
+    doc.text(`Party: ${lot.party_name}`);
+    doc.text(`Fabric: ${lot.fabric_name}`);
+    doc.text(`Shade: ${lot.shade_name || 'N/A'}`);
+    doc.moveDown();
+
+    if (lot.barcode_value) {
+      const qrDataUrl = await QRCode.toDataURL(lot.barcode_value);
+      doc.image(qrDataUrl, 450, 60, { width: 100 });
+    }
+
+    doc.font('Helvetica-Bold').fontSize(14).text('Process Stages');
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica');
+    stagesRes.rows.forEach(s => {
+      doc.text(`${s.sequence_no}. ${s.process_name} (${s.machine_type}) - ${s.status}`);
+    });
+    doc.moveDown();
+
+    doc.font('Helvetica-Bold').fontSize(14).text('Takas');
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica');
+    takasRes.rows.forEach(t => {
+      doc.text(`Taka ${t.taka_no}: ${t.meters}m / ${t.weight_kg}kg (${t.grade})`);
+    });
+
+    doc.end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

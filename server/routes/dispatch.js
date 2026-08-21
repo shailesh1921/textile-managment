@@ -103,4 +103,57 @@ router.get('/gst/invoices', authenticateToken, async (req, res) => {
   res.json(r.rows);
 });
 
+router.get('/packing-lists', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT pl.*, l.lot_no, jo.job_order_no 
+       FROM packing_lists pl
+       JOIN lots l ON pl.lot_id = l.lot_id AND l.tenant_id = pl.tenant_id
+       JOIN job_orders jo ON pl.job_order_id = jo.job_order_id AND jo.tenant_id = pl.tenant_id
+       WHERE pl.tenant_id = $1 ORDER BY pl.created_at DESC`,
+      [req.tenant_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/packing-lists', authenticateToken, async (req, res) => {
+  const { lot_id, job_order_id, items } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const no = await nextDocNo(req.tenant_id, 'PL', 'packing_lists', 'packing_list_no');
+    
+    let totalM = 0, totalKg = 0;
+    for (const item of items) {
+      totalM += parseFloat(item.finished_meters || 0);
+      totalKg += parseFloat(item.finished_kg || 0);
+    }
+
+    const pl = await client.query(
+      `INSERT INTO packing_lists (tenant_id, packing_list_no, lot_id, job_order_id, total_rolls, total_meters, total_kg, packed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [req.tenant_id, no, lot_id, job_order_id, items.length, totalM, totalKg, req.user.user_id]
+    );
+
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO packing_list_items (packing_list_id, roll_no, taka_id, finished_meters, finished_kg, quality_grade, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [pl.rows[0].packing_list_id, item.roll_no, item.taka_id, item.finished_meters, item.finished_kg, item.quality_grade || 'FRESH', item.remarks]
+      );
+    }
+    
+    await client.query('COMMIT');
+    res.status(201).json(pl.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

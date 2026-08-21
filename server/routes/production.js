@@ -262,4 +262,30 @@ router.get('/batches/:id/qr', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/batches/:id/utility-log', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM batch_utility_logs WHERE batch_id = $1 AND tenant_id = $2 ORDER BY logged_at DESC`,
+      [req.params.id, req.tenant_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/batches/:id/utility-log', authenticateToken, async (req, res) => {
+  const { utility_type, quantity, unit_cost, shift } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO batch_utility_logs (tenant_id, batch_id, utility_type, quantity, unit_cost, shift, logged_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [req.tenant_id, req.params.id, utility_type, quantity, unit_cost || 0, shift, req.user.user_id]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

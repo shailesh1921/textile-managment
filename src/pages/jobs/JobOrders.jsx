@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { Card, Table, Badge, Button, Modal, Input, Select } from '../../components/ui';
-import { Plus, Eye, CheckCircle, Scissors, FileText } from 'lucide-react';
+import { Plus, Eye, CheckCircle, Scissors, FileText, Printer, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function JobOrders() {
   const [orders, setOrders] = useState([]);
@@ -24,6 +24,10 @@ export default function JobOrders() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderLots, setOrderLots] = useState([]);
+  const [expandedLotId, setExpandedLotId] = useState(null);
+  const [takas, setTakas] = useState([]);
+  const [isTakasModalOpen, setIsTakasModalOpen] = useState(false);
+  const [takasForm, setTakasForm] = useState([{ meters: '', weight_kg: '', grade: 'FRESH', remarks: '' }]);
 
   // Form state
   const [form, setForm] = useState({
@@ -488,7 +492,7 @@ export default function JobOrders() {
             {/* Lots Breakdown */}
             <div>
               <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[11px] mb-3">Shopfloor Production Lots</h4>
-              <Table headers={['Lot Number', 'Barcode Code', 'Grey Input', 'Finished Output', 'Shrinkage %', 'Status']}>
+              <Table headers={['Lot Number', 'Barcode Code', 'Grey Input', 'Finished Output', 'Shrinkage %', 'Status', 'Actions']}>
                 {orderLots.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-4 text-center text-slate-400">
@@ -497,14 +501,75 @@ export default function JobOrders() {
                   </tr>
                 ) : (
                   orderLots.map(l => (
-                    <tr key={l.lot_id} className="hover:bg-slate-50">
-                      <td className="px-6 py-3 font-mono font-bold">{l.lot_no}</td>
-                      <td className="px-6 py-3 font-mono text-xs">{l.barcode_value}</td>
-                      <td className="px-6 py-3">{parseFloat(l.grey_qty_meters_in)} m ({parseFloat(l.grey_qty_kg_in)} kg)</td>
-                      <td className="px-6 py-3 font-bold">{parseFloat(l.finished_qty_meters)} m</td>
-                      <td className="px-6 py-3 text-amber-600 font-bold">{l.cumulative_shrinkage_pct}%</td>
-                      <td className="px-6 py-3"><Badge status={l.current_status}>{l.current_status}</Badge></td>
-                    </tr>
+                    <React.Fragment key={l.lot_id}>
+                      <tr className="hover:bg-slate-50">
+                        <td className="px-6 py-3 font-mono font-bold">{l.lot_no}</td>
+                        <td className="px-6 py-3 font-mono text-xs">{l.barcode_value}</td>
+                        <td className="px-6 py-3">{parseFloat(l.grey_qty_meters_in)} m ({parseFloat(l.grey_qty_kg_in)} kg)</td>
+                        <td className="px-6 py-3 font-bold">{parseFloat(l.finished_qty_meters)} m</td>
+                        <td className="px-6 py-3 text-amber-600 font-bold">{l.cumulative_shrinkage_pct}%</td>
+                        <td className="px-6 py-3"><Badge status={l.current_status}>{l.current_status}</Badge></td>
+                        <td className="px-6 py-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                if (expandedLotId === l.lot_id) {
+                                  setExpandedLotId(null);
+                                } else {
+                                  setExpandedLotId(l.lot_id);
+                                  const t = await api.get(`/api/v1/lots/${l.lot_id}/takas`).catch(() => []);
+                                  setTakas(t);
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-slate-600"
+                              title="View Takas"
+                            >
+                              {expandedLotId === l.lot_id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                            <button
+                              onClick={() => {
+                                const token = api.getToken ? api.getToken() : localStorage.getItem('token');
+                                window.open(`${window.location.origin}/api/v1/lots/${l.lot_id}/lot-card-pdf?token=${token}`, '_blank');
+                              }}
+                              className="p-1 text-slate-400 hover:text-blue-600"
+                              title="Print Lot Card"
+                            >
+                              <Printer size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedLotId === l.lot_id && (
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <td colSpan="7" className="px-6 py-4">
+                            <div className="flex justify-between items-center mb-2">
+                              <h5 className="font-bold text-slate-700 text-[11px] uppercase tracking-widest">Takas (Roll Entries)</h5>
+                              <Button size="sm" onClick={() => {
+                                setTakasForm([{ meters: '', weight_kg: '', grade: 'FRESH', remarks: '' }]);
+                                setIsTakasModalOpen(true);
+                              }} className="bg-emerald-600 text-[10px] py-1 px-2 h-auto">
+                                + Add Takas
+                              </Button>
+                            </div>
+                            <Table headers={['Taka #', 'Meters', 'Weight (kg)', 'Grade', 'Remarks']}>
+                              {takas.length === 0 ? (
+                                <tr><td colSpan="5" className="px-4 py-2 text-center text-slate-400">No takas added yet.</td></tr>
+                              ) : (
+                                takas.map((t, idx) => (
+                                  <tr key={idx}>
+                                    <td className="px-4 py-2 font-mono">{t.taka_no || (idx + 1)}</td>
+                                    <td className="px-4 py-2">{parseFloat(t.meters)}</td>
+                                    <td className="px-4 py-2">{parseFloat(t.weight_kg)}</td>
+                                    <td className="px-4 py-2"><Badge status={t.grade === 'FRESH' ? 'completed' : 'pending'}>{t.grade}</Badge></td>
+                                    <td className="px-4 py-2">{t.remarks}</td>
+                                  </tr>
+                                ))
+                              )}
+                            </Table>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))
                 )}
               </Table>
@@ -516,6 +581,63 @@ export default function JobOrders() {
           </div>
         </Modal>
       )}
+
+      {/* Add Takas Modal */}
+      <Modal isOpen={isTakasModalOpen} onClose={() => setIsTakasModalOpen(false)} title="Add Takas (Rolls)" className="max-w-3xl">
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          try {
+            await api.post(`/api/v1/lots/${expandedLotId}/takas`, { takas: takasForm.map(t => ({ ...t, meters: parseFloat(t.meters), weight_kg: parseFloat(t.weight_kg) })) });
+            setIsTakasModalOpen(false);
+            const t = await api.get(`/api/v1/lots/${expandedLotId}/takas`).catch(() => []);
+            setTakas(t);
+          } catch (err) {
+            alert(err.message);
+          }
+        }} className="flex flex-col gap-4 text-xs">
+          <Table headers={['Taka No', 'Meters', 'Weight (kg)', 'Grade', 'Remarks', '']}>
+            {takasForm.map((row, index) => (
+              <tr key={index}>
+                <td className="px-2 py-2">Auto</td>
+                <td className="px-2 py-2">
+                  <Input type="number" step="0.01" value={row.meters} onChange={e => {
+                    const newForm = [...takasForm]; newForm[index].meters = e.target.value; setTakasForm(newForm);
+                  }} required />
+                </td>
+                <td className="px-2 py-2">
+                  <Input type="number" step="0.01" value={row.weight_kg} onChange={e => {
+                    const newForm = [...takasForm]; newForm[index].weight_kg = e.target.value; setTakasForm(newForm);
+                  }} required />
+                </td>
+                <td className="px-2 py-2">
+                  <Select value={row.grade} onChange={e => {
+                    const newForm = [...takasForm]; newForm[index].grade = e.target.value; setTakasForm(newForm);
+                  }} options={[{value:'FRESH',label:'FRESH'},{value:'SECONDS',label:'SECONDS'},{value:'CUT_PIECE',label:'CUT PIECE'}]} />
+                </td>
+                <td className="px-2 py-2">
+                  <Input value={row.remarks} onChange={e => {
+                    const newForm = [...takasForm]; newForm[index].remarks = e.target.value; setTakasForm(newForm);
+                  }} />
+                </td>
+                <td className="px-2 py-2">
+                  {takasForm.length > 1 && (
+                    <button type="button" onClick={() => {
+                      const newForm = [...takasForm]; newForm.splice(index, 1); setTakasForm(newForm);
+                    }} className="text-red-500 font-bold">X</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </Table>
+          <Button type="button" variant="secondary" onClick={() => setTakasForm([...takasForm, { meters: '', weight_kg: '', grade: 'FRESH', remarks: '' }])}>
+            + Add Row
+          </Button>
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button variant="secondary" onClick={() => setIsTakasModalOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Save Takas</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

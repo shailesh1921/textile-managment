@@ -53,17 +53,26 @@ router.get('/lot-cost/:lotId', authenticateToken, async (req, res) => {
      WHERE br.lot_id = $1 AND br.tenant_id = $2`, 
     [lotId, req.tenant_id]
   );
+  const util = await pool.query(
+    `SELECT COALESCE(SUM(total_cost), 0) as utility_cost 
+     FROM batch_utility_logs 
+     WHERE batch_id IN (SELECT batch_id FROM batch_runs WHERE lot_id = $1 AND tenant_id = $2) AND tenant_id = $2`,
+    [lotId, req.tenant_id]
+  );
   const jo = await pool.query(`SELECT jo.rate_per_meter, jo.qty_meters_ordered FROM lots l JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id WHERE l.lot_id = $1 AND l.tenant_id = $2`, [lotId, req.tenant_id]);
   const recipeCost = parseFloat(disp.rows[0]?.recipe_cost || 0);
+  const utilityCost = parseFloat(util.rows[0]?.utility_cost || 0);
   const billed = parseFloat(jo.rows[0]?.rate_per_meter || 0) * parseFloat(jo.rows[0]?.qty_meters_ordered || 0);
   const machineCost = recipeCost * 0.3;
-  const total = recipeCost + machineCost;
+  const total = recipeCost + machineCost + utilityCost;
   const sheet = await pool.query(
     `INSERT INTO lot_cost_sheets (tenant_id, lot_id, recipe_cost, machine_hour_cost, total_cost, billed_amount, profit_margin, profit_margin_pct)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING *`,
     [req.tenant_id, lotId, recipeCost, machineCost, total, billed, billed - total, billed ? (((billed - total) / billed) * 100).toFixed(2) : 0]
   );
-  res.json(sheet.rows[0] || { lot_id: lotId, recipe_cost: recipeCost, total_cost: total, billed_amount: billed });
+  const resultObj = sheet.rows[0] || { lot_id: lotId, recipe_cost: recipeCost, total_cost: total, billed_amount: billed };
+  resultObj.utility_cost = utilityCost;
+  res.json(resultObj);
 });
 
 router.get('/invoices/:id/pdf', authenticateToken, async (req, res) => {

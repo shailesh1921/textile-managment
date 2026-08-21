@@ -14,6 +14,8 @@ const Dispatch = lazy(() => import('./pages/dispatch/Dispatch'));
 const Finance = lazy(() => import('./pages/finance/Finance'));
 const Reports = lazy(() => import('./pages/reports/Reports'));
 const JobWork = lazy(() => import('./pages/jobwork/JobWork'));
+const Procurement = lazy(() => import('./pages/procurement/Procurement'));
+const Sales = lazy(() => import('./pages/sales/Sales'));
 
 import { OnboardingWizardModal } from './components/OnboardingWizardModal';
 
@@ -25,7 +27,9 @@ const pages = {
   jobwork: JobWork, 
   quality: Quality, 
   inventory: Inventory, 
+  procurement: Procurement,
   dispatch: Dispatch, 
+  sales: Sales,
   finance: Finance, 
   reports: Reports 
 };

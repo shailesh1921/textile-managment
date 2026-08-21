@@ -5,6 +5,9 @@ import { Truck, FileText, Plus, Package, RotateCcw } from 'lucide-react';
 
 export default function Dispatch() {
   const [tab, setTab] = useState('ready');
+  const [packingLists, setPackingLists] = useState([]);
+  const [isPackingListModalOpen, setIsPackingListModalOpen] = useState(false);
+  const [packingListForm, setPackingListForm] = useState({ lot_id: '', job_order_id: '', items: [{ finished_meters: '', finished_kg: '', grade: 'FRESH' }] });
   const [readyLots, setReadyLots] = useState([]);
   const [challans, setChallans] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -43,6 +46,8 @@ export default function Dispatch() {
       setChallans(chs || []);
       const invs = await api.get('/api/v1/dispatch/gst/invoices');
       setInvoices(invs || []);
+      const pl = await api.get('/api/v1/dispatch/packing-lists').catch(() => []);
+      setPackingLists(pl || []);
       const pts = await api.get('/api/parties');
       setParties(pts || []);
       const jobs = await api.get('/api/v1/job-orders');
@@ -181,6 +186,7 @@ export default function Dispatch() {
         <div className="flex gap-2">
           {[
             { id: 'ready', label: 'QC Ready Stock' },
+            { id: 'packing', label: 'Packing Lists' },
             { id: 'challans', label: 'Delivery Challans (143)' },
             { id: 'invoices', label: 'GST Tax Invoices' },
             { id: 'returns', label: 'Returns Tracking' }
@@ -198,6 +204,11 @@ export default function Dispatch() {
         </div>
 
         <div className="flex gap-2 mb-2">
+          {tab === 'packing' && (
+            <Button onClick={() => setIsPackingListModalOpen(true)} className="bg-emerald-600 flex items-center gap-1 text-xs">
+              <Plus size={14} /> Create Packing List
+            </Button>
+          )}
           {tab === 'challans' && (
             <Button onClick={() => setIsChallanModalOpen(true)} className="bg-emerald-600 flex items-center gap-1 text-xs">
               <Plus size={14} /> New Challan
@@ -210,6 +221,30 @@ export default function Dispatch() {
           )}
         </div>
       </div>
+
+      {/* Packing Tab */}
+      {tab === 'packing' && (
+        <Card title="Packing Lists">
+          <Table headers={['PL No.', 'Lot', 'Job Order', 'Total Rolls', 'Total Meters', 'Total Kg', 'Status', 'Packed At']}>
+            {packingLists.length === 0 ? (
+              <tr><td colSpan="8" className="px-6 py-10 text-center text-slate-400">No packing lists found.</td></tr>
+            ) : (
+              packingLists.map(pl => (
+                <tr key={pl.packing_list_id} className="hover:bg-slate-50 text-xs">
+                  <td className="px-6 py-3.5 font-mono font-bold text-slate-800">{pl.packing_list_no}</td>
+                  <td className="px-6 py-3.5 font-bold">{pl.lot_no}</td>
+                  <td className="px-6 py-3.5 font-mono">{pl.job_order_no}</td>
+                  <td className="px-6 py-3.5">{pl.total_rolls}</td>
+                  <td className="px-6 py-3.5">{parseFloat(pl.total_meters)}</td>
+                  <td className="px-6 py-3.5">{parseFloat(pl.total_kg)}</td>
+                  <td className="px-6 py-3.5"><Badge status={pl.status}>{pl.status}</Badge></td>
+                  <td className="px-6 py-3.5">{new Date(pl.packed_at).toLocaleDateString()}</td>
+                </tr>
+              ))
+            )}
+          </Table>
+        </Card>
+      )}
 
       {/* QC Ready Stock Tab */}
       {tab === 'ready' && (
@@ -473,6 +508,50 @@ export default function Dispatch() {
           <div className="flex justify-end gap-3 mt-4 border-t pt-4">
             <Button variant="secondary" onClick={() => setIsInvoiceModalOpen(false)}>Cancel</Button>
             <Button type="submit" variant="primary">Generate Tax Invoice</Button>
+          </div>
+        </form>
+      </Modal>
+      {/* Create Packing List Modal */}
+      <Modal isOpen={isPackingListModalOpen} onClose={() => setIsPackingListModalOpen(false)} title="Create Packing List" className="max-w-3xl">
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          try {
+            await api.post('/api/v1/dispatch/packing-lists', {
+              lot_id: parseInt(packingListForm.lot_id),
+              job_order_id: parseInt(packingListForm.job_order_id),
+              items: packingListForm.items.map(i => ({ ...i, finished_meters: parseFloat(i.finished_meters), finished_kg: parseFloat(i.finished_kg) }))
+            });
+            setIsPackingListModalOpen(false);
+            setPackingListForm({ lot_id: '', job_order_id: '', items: [{ finished_meters: '', finished_kg: '', grade: 'FRESH' }] });
+            fetchData();
+          } catch (err) {
+            alert(err.message);
+          }
+        }} className="flex flex-col gap-4 text-xs">
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Lot" value={packingListForm.lot_id} onChange={e => {
+              const lot = readyLots.find(l => l.lot_id === parseInt(e.target.value));
+              setPackingListForm({ ...packingListForm, lot_id: e.target.value, job_order_id: lot ? lot.job_order_id : '' });
+            }} options={[{value: '', label: '-- Select Lot --'}, ...readyLots.map(l => ({value: l.lot_id, label: l.lot_no}))]} required />
+            <Input label="Job Order ID" type="number" value={packingListForm.job_order_id} onChange={e => setPackingListForm({...packingListForm, job_order_id: e.target.value})} required />
+          </div>
+          <Table headers={['Roll No', 'Finished Meters', 'Finished Kg', 'Grade', '']}>
+            {packingListForm.items.map((item, idx) => (
+              <tr key={idx}>
+                <td className="px-2 py-2">Auto</td>
+                <td className="px-2 py-2"><Input type="number" step="0.01" value={item.finished_meters} onChange={e => { const newItems = [...packingListForm.items]; newItems[idx].finished_meters = e.target.value; setPackingListForm({...packingListForm, items: newItems}); }} required /></td>
+                <td className="px-2 py-2"><Input type="number" step="0.01" value={item.finished_kg} onChange={e => { const newItems = [...packingListForm.items]; newItems[idx].finished_kg = e.target.value; setPackingListForm({...packingListForm, items: newItems}); }} required /></td>
+                <td className="px-2 py-2"><Select value={item.grade} onChange={e => { const newItems = [...packingListForm.items]; newItems[idx].grade = e.target.value; setPackingListForm({...packingListForm, items: newItems}); }} options={[{value:'FRESH',label:'FRESH'},{value:'SECONDS',label:'SECONDS'},{value:'CUT_PIECE',label:'CUT PIECE'}]} /></td>
+                <td className="px-2 py-2">{packingListForm.items.length > 1 && <button type="button" onClick={() => { const newItems = [...packingListForm.items]; newItems.splice(idx, 1); setPackingListForm({...packingListForm, items: newItems}); }} className="text-red-500 font-bold">X</button>}</td>
+              </tr>
+            ))}
+          </Table>
+          <Button type="button" variant="secondary" onClick={() => setPackingListForm({...packingListForm, items: [...packingListForm.items, { finished_meters: '', finished_kg: '', grade: 'FRESH' }]})}>
+            + Add Roll
+          </Button>
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button type="button" variant="secondary" onClick={() => setIsPackingListModalOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Create Packing List</Button>
           </div>
         </form>
       </Modal>

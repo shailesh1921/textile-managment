@@ -43,6 +43,12 @@ export default function Production() {
   });
 
   const [pendingStages, setPendingStages] = useState([]);
+  const [utilityLogs, setUtilityLogs] = useState([]);
+  const [expandedBatchId, setExpandedBatchId] = useState(null);
+  const [isUtilityModalOpen, setIsUtilityModalOpen] = useState(false);
+  const [utilityForm, setUtilityForm] = useState({
+    utility_type: 'ELECTRICITY_KWH', quantity: '', unit_cost: '', shift: 'A'
+  });
 
   const fetchData = async () => {
     try {
@@ -206,60 +212,111 @@ export default function Production() {
             </TableRow>
           ) : (
             batches.map((b) => (
-              <TableRow key={b.batch_id}>
-                <TableCell className="font-mono font-medium">{b.batch_no}</TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-semibold">{b.lot_no}</span>
-                    <span className="text-xs text-muted-foreground font-mono">{b.barcode_value}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="font-medium text-primary">{b.machine_name}</TableCell>
-                <TableCell>{b.process_name}</TableCell>
-                <TableCell>{getStatusBadge(b.status)}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => { setTargetBatchId(b.batch_id); setIsQRModalOpen(true); }}
-                      title="View / Print Batch QR Code"
-                    >
-                      <QrCode size={14} />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => { setSelectedBatch(b); setIsNotifyModalOpen(true); }}
-                      title="Send SMS / WhatsApp Update to Client"
-                    >
-                      <Send size={14} className="mr-1" /> Notify
-                    </Button>
-                    {b.status === 'LOADING' && (
-                      <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(b.batch_id, 'IN_PROCESS')}>
-                        Start Running
+              <React.Fragment key={b.batch_id}>
+                <TableRow>
+                  <TableCell className="font-mono font-medium">{b.batch_no}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{b.lot_no}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{b.barcode_value}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-medium text-primary">{b.machine_name}</TableCell>
+                  <TableCell>{b.process_name}</TableCell>
+                  <TableCell>{getStatusBadge(b.status)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => { setTargetBatchId(b.batch_id); setIsQRModalOpen(true); }}
+                        title="View / Print Batch QR Code"
+                      >
+                        <QrCode size={14} />
                       </Button>
-                    )}
-                    {b.status === 'IN_PROCESS' && (
-                      <div className="flex items-center gap-2">
-                        {b.recipe_id && (
-                          <Button variant="secondary" size="sm" onClick={() => handleLoadDispensing(b)} title="Dispense Chemicals">
-                            <Layers size={14} className="mr-1" /> Dispense
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => { setSelectedBatch(b); setIsNotifyModalOpen(true); }}
+                        title="Send SMS / WhatsApp Update to Client"
+                      >
+                        <Send size={14} className="mr-1" /> Notify
+                      </Button>
+                      {b.status === 'LOADING' && (
+                        <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(b.batch_id, 'IN_PROCESS')}>
+                          Start Running
+                        </Button>
+                      )}
+                      {b.status === 'IN_PROCESS' && (
+                        <div className="flex items-center gap-2">
+                          {b.recipe_id && (
+                            <Button variant="secondary" size="sm" onClick={() => handleLoadDispensing(b)} title="Dispense Chemicals">
+                              <Layers size={14} className="mr-1" /> Dispense
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(b.batch_id, 'UNLOADING')}>
+                            Unload
                           </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(b.batch_id, 'UNLOADING')}>
-                          Unload
+                        </div>
+                      )}
+                      {b.status === 'UNLOADING' && (
+                        <Button variant="default" size="sm" onClick={() => handleOpenEntry(b)}>
+                          <FileEdit size={14} className="mr-1" /> Log Output
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={async () => {
+                          if (expandedBatchId === b.batch_id) {
+                            setExpandedBatchId(null);
+                          } else {
+                            setExpandedBatchId(b.batch_id);
+                            const logs = await api.get(`/api/v1/production/batches/${b.batch_id}/utility-log`).catch(() => []);
+                            setUtilityLogs(logs);
+                          }
+                        }}
+                        title="View Utility Logs"
+                      >
+                        <BarChart size={14} className="mr-1" />
+                        Utility
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+                {expandedBatchId === b.batch_id && (
+                  <TableRow className="bg-slate-50">
+                    <TableCell colSpan="6" className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h5 className="font-bold text-slate-700 text-xs uppercase tracking-widest">Utility Consumption Logs</h5>
+                        <Button size="sm" onClick={() => {
+                          setSelectedBatch(b);
+                          setUtilityForm({ utility_type: 'ELECTRICITY_KWH', quantity: '', unit_cost: '', shift: 'A' });
+                          setIsUtilityModalOpen(true);
+                        }} className="h-8 text-xs">
+                          + Log Utility Consumption
                         </Button>
                       </div>
-                    )}
-                    {b.status === 'UNLOADING' && (
-                      <Button variant="default" size="sm" onClick={() => handleOpenEntry(b)}>
-                        <FileEdit size={14} className="mr-1" /> Log Output
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
+                      <Table headers={['Type', 'Quantity', 'Unit Cost (₹)', 'Total Cost (₹)', 'Shift', 'Logged At']}>
+                        {utilityLogs.length === 0 ? (
+                          <TableRow><TableCell colSpan="6" className="text-center text-slate-400 py-2">No utility logs found.</TableCell></TableRow>
+                        ) : (
+                          utilityLogs.map((ul, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell>{ul.utility_type}</TableCell>
+                              <TableCell>{parseFloat(ul.quantity)}</TableCell>
+                              <TableCell>₹{parseFloat(ul.unit_cost)}</TableCell>
+                              <TableCell>₹{parseFloat(ul.total_cost)}</TableCell>
+                              <TableCell>{ul.shift}</TableCell>
+                              <TableCell>{new Date(ul.logged_at).toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </Table>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </React.Fragment>
             ))
           )}
         </Table>
@@ -409,6 +466,44 @@ export default function Production() {
         onClose={() => setIsQRModalOpen(false)} 
         batchId={targetBatchId} 
       />
+
+      {/* Log Utility Modal */}
+      <Modal isOpen={isUtilityModalOpen} onClose={() => setIsUtilityModalOpen(false)} title="Log Utility Consumption" className="max-w-md">
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          try {
+            await api.post(`/api/v1/production/batches/${selectedBatch.batch_id}/utility-log`, {
+              ...utilityForm,
+              quantity: parseFloat(utilityForm.quantity),
+              unit_cost: parseFloat(utilityForm.unit_cost)
+            });
+            setIsUtilityModalOpen(false);
+            const logs = await api.get(`/api/v1/production/batches/${selectedBatch.batch_id}/utility-log`).catch(() => []);
+            setUtilityLogs(logs);
+          } catch (err) {
+            alert(err.message);
+          }
+        }} className="flex flex-col gap-4">
+          <Select label="Utility Type" value={utilityForm.utility_type} onChange={e => setUtilityForm({...utilityForm, utility_type: e.target.value})} options={[
+            {value: 'COAL_KG', label: 'Coal (KG)'},
+            {value: 'GAS_M3', label: 'Gas (M3)'},
+            {value: 'STEAM_KG', label: 'Steam (KG)'},
+            {value: 'ELECTRICITY_KWH', label: 'Electricity (KWH)'},
+            {value: 'WATER_LITERS', label: 'Water (Liters)'}
+          ]} required />
+          <Input label="Quantity" type="number" step="0.01" value={utilityForm.quantity} onChange={e => setUtilityForm({...utilityForm, quantity: e.target.value})} required />
+          <Input label="Unit Cost (₹)" type="number" step="0.01" value={utilityForm.unit_cost} onChange={e => setUtilityForm({...utilityForm, unit_cost: e.target.value})} required />
+          <Select label="Shift" value={utilityForm.shift} onChange={e => setUtilityForm({...utilityForm, shift: e.target.value})} options={[
+            {value: 'A', label: 'A Shift'},
+            {value: 'B', label: 'B Shift'},
+            {value: 'C', label: 'C Shift'}
+          ]} required />
+          <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={() => setIsUtilityModalOpen(false)}>Cancel</Button>
+            <Button type="submit">Log Utility</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
