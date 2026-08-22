@@ -93,6 +93,7 @@ export default function Masters() {
     party_id: '', fabric_id: '', process_name: 'Dyeing (Reactive)', rate_per_meter: 0, rate_per_kg: 0,
     slab_min_qty: 0, slab_max_qty: 99999999.99
   });
+  const [fabrics, setFabrics] = useState([]);
   const [shadesList, setShadesList] = useState([]);
 
   const fetchData = async () => {
