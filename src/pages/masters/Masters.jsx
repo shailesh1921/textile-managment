@@ -89,6 +89,10 @@ export default function Masters() {
     recipe_code: '', shade_id: '', fabric_id: '', machine_type: 'JET_DYEING',
     liquor_ratio: 10, process_temp_celsius: 130, cycle_time_mins: 90, ph_target: 5.5, is_approved: true
   });
+  const [rateForm, setRateForm] = useState({
+    party_id: '', fabric_id: '', process_name: 'Dyeing (Reactive)', rate_per_meter: 0, rate_per_kg: 0,
+    slab_min_qty: 0, slab_max_qty: 99999999.99
+  });
   const [shadesList, setShadesList] = useState([]);
 
   const fetchData = async () => {
