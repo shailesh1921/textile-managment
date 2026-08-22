@@ -1,6 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 260 20% 96%;
+    --foreground: 224 71.4% 4.1%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+
+    /* Brand Primary Accent: Rich Purple #6B4EFF */
+    --primary: 250 100% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 260 15% 92%;
+    --secondary-foreground: 250 100% 65%;
+
+    --muted: 260 10% 90%;
+    --muted-foreground: 260 10% 40%;
+
+    --accent: 260 15% 92%;
+    --accent-foreground: 250 100% 65%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 260 15% 88%;
+    --input: 260 15% 88%;
+    --ring: 250 100% 65%;
+
+    --radius: 0.625rem;
+  }
+}
 
 * {
   margin: 0;
@@ -13,9 +50,17 @@ html {
 }
 
 body {
-  font-family: 'Helvetica Neue Light', Helvetica, Arial, sans-serif;
+  font-family: 'Helvetica Neue Light', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+input, select, textarea {
+  color: #0f172a !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #94a3b8 !important;
 }
 
 @keyframes fade-up {
@@ -36,26 +81,9 @@ body {
   animation: fade-down 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.stagger-1 {
-  animation-delay: 0ms;
-}
-
-.stagger-2 {
-  animation-delay: 120ms;
-}
-
-.stagger-3 {
-  animation-delay: 240ms;
-}
-
-.stagger-4 {
-  animation-delay: 360ms;
-}
-
-.stagger-5 {
-  animation-delay: 480ms;
-}
-
-.stagger-6 {
-  animation-delay: 600ms;
-}
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 120ms; }
+.stagger-3 { animation-delay: 240ms; }
+.stagger-4 { animation-delay: 360ms; }
+.stagger-5 { animation-delay: 480ms; }
+.stagger-6 { animation-delay: 600ms; }
