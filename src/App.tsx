@@ -171,11 +171,22 @@ const TrustedBy: React.FC = () => {
 };
 
 const Hero: React.FC = () => {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.play().catch((err) => {
+        console.warn("Autoplay policy prevented playback, video remains muted:", err);
+      });
+    }
+  }, []);
+
   return (
     <section className="relative w-full h-screen min-h-[700px] overflow-hidden bg-brand-cream">
       {/* Video layer */}
       <div className="absolute inset-0">
         <video
+          ref={videoRef}
           src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260820_010308_b1636845-4c15-4ab6-b0c9-9a29bfb0c6e3.mp4"
           autoPlay
           muted
