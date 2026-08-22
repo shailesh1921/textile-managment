@@ -260,21 +260,21 @@ export default function Login({ onLoginSuccess }) {
           <div className="pt-4 border-t border-slate-100 text-center flex flex-col gap-2 mt-1">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Demo Mill Accounts</span>
             <div className="flex justify-center gap-3">
-              {['admin', 'prod_mgr', 'qc1'].map(user => (
+              {[
+                { name: 'admin', label: 'Admin (admin)' },
+                { name: 'prod_mgr', label: 'Production (prod_mgr)' },
+                { name: 'qc1', label: 'QC (qc1)' }
+              ].map(item => (
                 <button 
                   type="button"
-                  key={user}
+                  key={item.name}
                   onClick={() => {
-                    const creds = {
-                      admin: { username: 'admin', password: 'admin123' },
-                      prod_mgr: { username: 'prod_mgr', password: 'manager123' },
-                      qc1: { username: 'qc1', password: 'qc123' }
-                    }[user];
-                    setSignInForm(creds);
+                    setSignInForm({ username: item.name, password: 'admin123' });
+                    setError('');
                   }}
-                  className="text-xs text-slate-600 hover:text-[#6B4EFF] border border-slate-200 bg-slate-50 px-2.5 py-1 rounded-md transition-all font-semibold"
+                  className="text-xs text-slate-600 hover:text-[#6B4EFF] border border-slate-200 bg-slate-50 px-2.5 py-1 rounded-md transition-all font-semibold hover:border-[#6B4EFF]"
                 >
-                  {user}
+                  {item.name}
                 </button>
               ))}
             </div>
