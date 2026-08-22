@@ -13,8 +13,7 @@ router.get('/queue', authenticateToken, async (req, res) => {
        JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id
        JOIN fabrics f ON jo.fabric_id = f.fabric_id AND f.tenant_id = l.tenant_id
        LEFT JOIN shades s ON jo.shade_id = s.shade_id AND s.tenant_id = l.tenant_id
-       WHERE l.tenant_id = $1 AND l.current_status IN ('QC_HOLD','UNLOADING','WAITING')
-       AND NOT EXISTS (SELECT 1 FROM qc_inspections qi WHERE qi.lot_id = l.lot_id AND qi.tenant_id = l.tenant_id AND qi.inspection_type = 'FINAL_4PT' AND qi.result = 'PASS')
+       WHERE l.tenant_id = $1
        ORDER BY l.lot_id DESC`,
       [req.tenant_id]
     );

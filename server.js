@@ -22,6 +22,9 @@ const clientPortalRoutes = require('./server/routes/clientPortal');
 const jobWorkRoutes = require('./server/routes/jobWork');
 const ownerAnalyticsRoutes = require('./server/routes/ownerAnalytics');
 
+const salesRoutes = require('./server/routes/sales');
+const procurementRoutes = require('./server/routes/procurement');
+
 const app = express();
 const PORT = process.env.PORT || 5005;
 
@@ -58,11 +61,21 @@ app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/client-portal', clientPortalRoutes);
 app.use('/api/v1/job-work', jobWorkRoutes);
 app.use('/api/v1/owner-analytics', ownerAnalyticsRoutes);
+app.use('/api/v1/sales', salesRoutes);
+app.use('/api/v1/procurement', procurementRoutes);
 
-// Legacy aliases for existing frontend paths
+// Aliases for unified frontend routing
 app.use('/api', masterRoutes);
+app.use('/api', jobRoutes);
 app.use('/api/production', prodRoutes);
 app.use('/api/quality', qcRoutes);
+app.use('/api/qc', qcRoutes);
+app.use('/api/inventory', invRoutes);
+app.use('/api/dispatch', dispatchRoutes);
+app.use('/api/finance', financeRoutes);
+app.use('/api/job-work', jobWorkRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/procurement', procurementRoutes);
 app.use('/api/inventory', invRoutes);
 
 app.use(express.static(path.join(__dirname, 'dist')));

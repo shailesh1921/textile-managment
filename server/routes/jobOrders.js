@@ -25,6 +25,26 @@ router.get('/job-orders', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/lots', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT l.*, jo.job_order_no, jo.required_delivery_date, p.trade_name as party_name,
+              f.fabric_name, s.shade_name
+       FROM lots l
+       JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id
+       JOIN parties p ON jo.party_id = p.party_id
+       JOIN fabrics f ON jo.fabric_id = f.fabric_id
+       LEFT JOIN shades s ON jo.shade_id = s.shade_id
+       WHERE l.tenant_id = $1
+       ORDER BY l.lot_id DESC`,
+      [req.tenant_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/job-orders/:id', authenticateToken, async (req, res) => {
   try {
     const jo = await pool.query(

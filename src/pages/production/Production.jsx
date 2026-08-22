@@ -56,12 +56,7 @@ export default function Production() {
       setMachines(machs || []);
       const bts = await api.get('/api/production/batches');
       setBatches(bts || []);
-      const lts = await api.get('/api/v1/job-orders').then(jobs => {
-        return jobs.reduce((acc, job) => {
-          if (job.lots) acc.push(...job.lots);
-          return acc;
-        }, []);
-      }).catch(() => []);
+      const lts = await api.get('/api/v1/lots').catch(() => []);
       setLots(lts || []);
     } catch (err) {
       console.error(err);

@@ -73,11 +73,23 @@ export default function Masters() {
     gst_rate_pct: 18, reorder_level: 0, reorder_qty: 0, preferred_supplier_id: '',
     track_batch_expiry: true, shelf_life_days: 365
   });
-  const [rateForm, setRateForm] = useState({
-    party_id: '', fabric_id: '', process_name: 'Dyeing (Reactive)', rate_per_meter: 0, rate_per_kg: 0,
-    slab_min_qty: 0, slab_max_qty: 99999999.99
+  const [machineForm, setMachineForm] = useState({
+    machine_code: '', machine_name: '', machine_type: 'JET_DYEING', capacity_value: 250, capacity_uom: 'KG',
+    liquor_ratio_min: 8, liquor_ratio_max: 12, current_status: 'IDLE', location: 'Dyehouse Bay 1', hourly_rate: 800
   });
-  const [fabrics, setFabrics] = useState([]);
+  const [templateForm, setTemplateForm] = useState({
+    template_name: '', fabric_id: '', process_type: 'DYEING',
+    steps: [
+      { sequence_no: 1, process_name: 'Scouring & Bleaching', machine_type: 'JET_DYEING', standard_time_mins: 60, expected_loss_pct: 1.5, is_qc_checkpoint: false },
+      { sequence_no: 2, process_name: 'Dyeing', machine_type: 'JET_DYEING', standard_time_mins: 120, expected_loss_pct: 2.5, is_qc_checkpoint: true },
+      { sequence_no: 3, process_name: 'Drying & Finishing', machine_type: 'STENTER', standard_time_mins: 30, expected_loss_pct: 0.5, is_qc_checkpoint: false }
+    ]
+  });
+  const [recipeForm, setRecipeForm] = useState({
+    recipe_code: '', shade_id: '', fabric_id: '', machine_type: 'JET_DYEING',
+    liquor_ratio: 10, process_temp_celsius: 130, cycle_time_mins: 90, ph_target: 5.5, is_approved: true
+  });
+  const [shadesList, setShadesList] = useState([]);
 
   const fetchData = async () => {
     try {
@@ -89,14 +101,18 @@ export default function Masters() {
       };
       const result = await api.get(paths[tab]);
       setData(result || []);
-      if (tab === 'shades' || tab === 'chemicals' || tab === 'rates') {
+      if (tab === 'shades' || tab === 'chemicals' || tab === 'rates' || tab === 'recipes') {
         const p = await api.get('/api/v1/parties');
         setParties(p || []);
         setSuppliers((p || []).filter(x => x.party_type === 'SUPPLIER'));
       }
-      if (tab === 'rates') {
+      if (tab === 'rates' || tab === 'templates' || tab === 'recipes') {
         const f = await api.get('/api/v1/fabrics');
         setFabrics(f || []);
+      }
+      if (tab === 'recipes') {
+        const s = await api.get('/api/v1/shades');
+        setShadesList(s || []);
       }
     } catch (err) {
       console.error('Error fetching master data:', err.message);
@@ -155,7 +171,37 @@ export default function Masters() {
     } catch (err) { alert(err.message); }
   };
 
-  const canCreate = ['parties', 'fabrics', 'shades', 'chemicals', 'rates'].includes(tab);
+  const handleCreateMachine = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/machines', machineForm);
+      setIsModalOpen(false);
+      setMachineForm({ machine_code: '', machine_name: '', machine_type: 'JET_DYEING', capacity_value: 250, capacity_uom: 'KG', liquor_ratio_min: 8, liquor_ratio_max: 12, current_status: 'IDLE', location: 'Dyehouse Bay 1', hourly_rate: 800 });
+      fetchData();
+    } catch (err) { alert(err.message); }
+  };
+
+  const handleCreateTemplate = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/process-templates', templateForm);
+      setIsModalOpen(false);
+      setTemplateForm({ template_name: '', fabric_id: '', process_type: 'DYEING', steps: [] });
+      fetchData();
+    } catch (err) { alert(err.message); }
+  };
+
+  const handleCreateRecipe = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/recipes', recipeForm);
+      setIsModalOpen(false);
+      setRecipeForm({ recipe_code: '', shade_id: '', fabric_id: '', machine_type: 'JET_DYEING', liquor_ratio: 10, process_temp_celsius: 130, cycle_time_mins: 90, ph_target: 5.5, is_approved: true });
+      fetchData();
+    } catch (err) { alert(err.message); }
+  };
+
+  const canCreate = true;
 
   return (
     <div className="flex flex-col gap-4">
@@ -471,6 +517,84 @@ export default function Masters() {
           <div className="flex justify-end gap-3 mt-4 border-t pt-4">
             <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button type="submit">Save Rate</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Machine Modal */}
+      <Modal isOpen={isModalOpen && tab === 'machines'} onClose={() => setIsModalOpen(false)} title="Add Production Machine" className="max-w-2xl">
+        <form onSubmit={handleCreateMachine} className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Machine Code" value={machineForm.machine_code} onChange={e => setMachineForm({...machineForm, machine_code: e.target.value})} required placeholder="e.g. JET-03" />
+            <Input label="Machine Name" value={machineForm.machine_name} onChange={e => setMachineForm({...machineForm, machine_name: e.target.value})} required placeholder="e.g. Jet Dyeing Machine #3" />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <Select label="Machine Type" value={machineForm.machine_type} onChange={e => setMachineForm({...machineForm, machine_type: e.target.value})}
+              options={[
+                { value: 'JET_DYEING', label: 'Jet Dyeing' },
+                { value: 'RELAX_DRYER', label: 'Relax Dryer' },
+                { value: 'STENTER', label: 'Stenter' },
+                { value: 'DECATIZING', label: 'Decatizing' },
+                { value: 'CALENDERING', label: 'Calendering' },
+                { value: 'JIGGER', label: 'Jigger' },
+                { value: 'PADDING_MANGLE', label: 'Padding Mangle' }
+              ]} required />
+            <Input label="Capacity Value" type="number" value={machineForm.capacity_value} onChange={e => setMachineForm({...machineForm, capacity_value: e.target.value})} required />
+            <Select label="Capacity UOM" value={machineForm.capacity_uom} onChange={e => setMachineForm({...machineForm, capacity_uom: e.target.value})}
+              options={[{ value: 'KG', label: 'KG' }, { value: 'meters/hr', label: 'meters/hr' }]} />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <Input label="Min Liquor Ratio" type="number" step="0.1" value={machineForm.liquor_ratio_min} onChange={e => setMachineForm({...machineForm, liquor_ratio_min: e.target.value})} />
+            <Input label="Max Liquor Ratio" type="number" step="0.1" value={machineForm.liquor_ratio_max} onChange={e => setMachineForm({...machineForm, liquor_ratio_max: e.target.value})} />
+            <Input label="Hourly Cost Rate (₹)" type="number" value={machineForm.hourly_rate} onChange={e => setMachineForm({...machineForm, hourly_rate: e.target.value})} />
+          </div>
+          <Input label="Location / Bay" value={machineForm.location} onChange={e => setMachineForm({...machineForm, location: e.target.value})} placeholder="e.g. Dyehouse Bay 2" />
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit">Add Machine</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Process Template Modal */}
+      <Modal isOpen={isModalOpen && tab === 'templates'} onClose={() => setIsModalOpen(false)} title="Create Process Route Template" className="max-w-2xl">
+        <form onSubmit={handleCreateTemplate} className="flex flex-col gap-4">
+          <Input label="Template Name" value={templateForm.template_name} onChange={e => setTemplateForm({...templateForm, template_name: e.target.value})} required placeholder="e.g. Polyester Rapid Jet Dyeing" />
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Fabric Type" value={templateForm.fabric_id} onChange={e => setTemplateForm({...templateForm, fabric_id: e.target.value})}
+              options={[{ value: '', label: '— All Fabrics —' }, ...fabrics.map(f => ({ value: f.fabric_id, label: f.fabric_name }))]} />
+            <Select label="Process Type" value={templateForm.process_type} onChange={e => setTemplateForm({...templateForm, process_type: e.target.value})}
+              options={[{ value: 'DYEING', label: 'Dyeing' }, { value: 'PRINTING', label: 'Printing' }, { value: 'FINISHING', label: 'Finishing Only' }]} />
+          </div>
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit">Create Template</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Recipe Modal */}
+      <Modal isOpen={isModalOpen && tab === 'recipes'} onClose={() => setIsModalOpen(false)} title="Add Dyeing Recipe Formulation" className="max-w-2xl">
+        <form onSubmit={handleCreateRecipe} className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Recipe Code" value={recipeForm.recipe_code} onChange={e => setRecipeForm({...recipeForm, recipe_code: e.target.value})} required placeholder="e.g. RCP-NVB-01" />
+            <Select label="Target Shade" value={recipeForm.shade_id} onChange={e => setRecipeForm({...recipeForm, shade_id: e.target.value})}
+              options={[{ value: '', label: '— Select Shade —' }, ...shadesList.map(s => ({ value: s.shade_id, label: s.shade_name }))]} required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Fabric" value={recipeForm.fabric_id} onChange={e => setRecipeForm({...recipeForm, fabric_id: e.target.value})}
+              options={[{ value: '', label: '— Select Fabric —' }, ...fabrics.map(f => ({ value: f.fabric_id, label: f.fabric_name }))]} required />
+            <Select label="Machine Type" value={recipeForm.machine_type} onChange={e => setRecipeForm({...recipeForm, machine_type: e.target.value})}
+              options={[{ value: 'JET_DYEING', label: 'Jet Dyeing' }, { value: 'JIGGER', label: 'Jigger' }, { value: 'PADDING_MANGLE', label: 'Padding Mangle' }]} />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <Input label="Liquor Ratio (1:X)" type="number" step="0.5" value={recipeForm.liquor_ratio} onChange={e => setRecipeForm({...recipeForm, liquor_ratio: e.target.value})} />
+            <Input label="Process Temp (°C)" type="number" value={recipeForm.process_temp_celsius} onChange={e => setRecipeForm({...recipeForm, process_temp_celsius: e.target.value})} />
+            <Input label="Cycle Time (mins)" type="number" value={recipeForm.cycle_time_mins} onChange={e => setRecipeForm({...recipeForm, cycle_time_mins: e.target.value})} />
+          </div>
+          <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit">Save Recipe</Button>
           </div>
         </form>
       </Modal>

@@ -10,6 +10,7 @@ export default function Finance() {
   const [selectedPartyId, setSelectedPartyId] = useState('');
   const [ledgerEntries, setLedgerEntries] = useState([]);
   const [ageingData, setAgeingData] = useState([]);
+  const [lots, setLots] = useState([]);
   
   // Billing state
   const [billingForm, setBillingForm] = useState({
@@ -26,6 +27,8 @@ export default function Finance() {
       setParties(pts || []);
       const jobs = await api.get('/api/v1/job-orders');
       setJobOrders(jobs || []);
+      const lts = await api.get('/api/v1/lots').catch(() => []);
+      setLots(lts || []);
       
       if (tab === 'ageing') {
         const ageing = await api.get('/api/v1/finance/ageing');
@@ -242,12 +245,17 @@ export default function Finance() {
           <div className="lg:col-span-1">
             <Card title="Analyze Lot Profitability">
               <form onSubmit={handleFetchCostSheet} className="flex flex-col gap-4 text-xs mt-2">
-                <Input
-                  label="Enter Lot Database ID / Reference"
-                  type="number"
+                <Select
+                  label="Select Production Lot"
                   value={searchLotId}
                   onChange={e => setSearchLotId(e.target.value)}
-                  placeholder="e.g. 1, 2"
+                  options={[
+                    { value: '', label: '-- Select Lot --' },
+                    ...lots.map(l => ({
+                      value: l.lot_id,
+                      label: `${l.lot_no} (${l.party_name || 'Trader'} - ${l.fabric_name || 'Fabric'})`
+                    }))
+                  ]}
                   required
                 />
                 <Button type="submit" className="bg-emerald-600 font-bold py-2.5">

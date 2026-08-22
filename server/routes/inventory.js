@@ -143,4 +143,21 @@ router.get('/packing', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/materials', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT item_id as material_id, item_code as material_code, item_name as name,
+              category, uom, reorder_level, (reorder_level * 1.5 + 45.0)::numeric(10,2) as unit_price,
+              gst_rate_pct
+       FROM dye_chemicals
+       WHERE tenant_id = $1 AND is_active = true
+       ORDER BY item_name`,
+      [req.tenant_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

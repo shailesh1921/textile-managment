@@ -239,4 +239,90 @@ router.get('/recipes', authenticateToken, async (req, res) => {
   }
 });
 
+router.post('/machines', authenticateToken, async (req, res) => {
+  const b = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO machines (tenant_id, machine_code, machine_name, machine_type, capacity_value, capacity_uom, liquor_ratio_min, liquor_ratio_max, current_status, location, hourly_rate)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [
+        req.tenant_id, b.machine_code, b.machine_name, b.machine_type || 'JET_DYEING',
+        parseFloat(b.capacity_value || 0), b.capacity_uom || 'KG',
+        parseFloat(b.liquor_ratio_min || 8), parseFloat(b.liquor_ratio_max || 12),
+        b.current_status || 'IDLE', b.location || '', parseFloat(b.hourly_rate || 0)
+      ]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/process-templates', authenticateToken, async (req, res) => {
+  const b = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `INSERT INTO process_templates (tenant_id, template_name, fabric_id, process_type)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.tenant_id, b.template_name, b.fabric_id ? parseInt(b.fabric_id) : null, b.process_type || 'DYEING']
+    );
+    const template = result.rows[0];
+    if (Array.isArray(b.steps) && b.steps.length > 0) {
+      for (let i = 0; i < b.steps.length; i++) {
+        const s = b.steps[i];
+        await client.query(
+          `INSERT INTO process_template_steps (template_id, sequence_no, process_name, machine_type, standard_time_mins, expected_loss_pct, is_qc_checkpoint)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [template.template_id, s.sequence_no || (i + 1), s.process_name, s.machine_type || 'JET_DYEING', parseInt(s.standard_time_mins || 60), parseFloat(s.expected_loss_pct || 1.0), !!s.is_qc_checkpoint]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    res.status(201).json(template);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/recipes', authenticateToken, async (req, res) => {
+  const b = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `INSERT INTO recipes (tenant_id, recipe_code, shade_id, fabric_id, machine_type, liquor_ratio, process_temp_celsius, cycle_time_mins, ph_target, is_approved)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [
+        req.tenant_id, b.recipe_code, b.shade_id ? parseInt(b.shade_id) : null,
+        b.fabric_id ? parseInt(b.fabric_id) : null, b.machine_type || 'JET_DYEING',
+        parseFloat(b.liquor_ratio || 10.0), parseFloat(b.process_temp_celsius || 130),
+        parseInt(b.cycle_time_mins || 60), parseFloat(b.ph_target || 5.5), !!b.is_approved
+      ]
+    );
+    const recipe = result.rows[0];
+    if (Array.isArray(b.lines) && b.lines.length > 0) {
+      for (let i = 0; i < b.lines.length; i++) {
+        const l = b.lines[i];
+        await client.query(
+          `INSERT INTO recipe_lines (recipe_id, item_id, dosage_pct, dosage_gpl, sequence_no, is_critical)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [recipe.recipe_id, parseInt(l.item_id), parseFloat(l.dosage_pct || 0), parseFloat(l.dosage_gpl || 0), l.sequence_no || (i + 1), !!l.is_critical]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    res.status(201).json(recipe);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
