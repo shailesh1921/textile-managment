@@ -5,8 +5,10 @@ import {
   Crown, TrendingUp, DollarSign, Activity, AlertTriangle, 
   CheckCircle2, FileText, ArrowUpRight, BarChart3, Users, ShieldAlert 
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function OwnerCockpit({ setActiveTab }) {
+  const { t } = useLanguage();
   const [metrics, setMetrics] = useState(null);
   const [aging, setAging] = useState([]);
   const [machines, setMachines] = useState([]);
@@ -47,17 +49,17 @@ export default function OwnerCockpit({ setActiveTab }) {
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <span className="bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-              <Crown size={12} className="inline fill-current" /> Mill Owner & Executive Cockpit
+              <Crown size={12} className="inline fill-current" /> {t('owner_cockpit_tag')}
             </span>
           </div>
-          <h2 className="text-2xl font-black tracking-tight">Executive Management Overview</h2>
+          <h2 className="text-2xl font-black tracking-tight">{t('owner_cockpit_title')}</h2>
           <p className="text-slate-300 text-xs mt-1">
-            Real-time high-level visibility over mill profit margins, active machine floor utilization, trader receivables, and staff logs.
+            {t('owner_cockpit_sub')}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <Button onClick={() => setActiveTab('finance')} className="bg-[#6B4EFF] hover:bg-[#573fd6] text-white font-bold text-xs h-10 px-4">
-            <DollarSign size={14} className="mr-1" /> View Lot Profit Sheets
+            <DollarSign size={14} className="mr-1" /> {t('view_lot_profit_sheets')}
           </Button>
         </div>
       </div>
@@ -67,7 +69,7 @@ export default function OwnerCockpit({ setActiveTab }) {
         
         <div className="bg-white p-5 rounded-xl border border-slate-200/70 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Revenue Generated</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('total_revenue')}</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <DollarSign size={18} />
             </div>
@@ -80,7 +82,7 @@ export default function OwnerCockpit({ setActiveTab }) {
 
         <div className="bg-white p-5 rounded-xl border border-slate-200/70 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Machines in Run</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('active_machines')}</span>
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
               <Activity size={18} />
             </div>
@@ -93,7 +95,7 @@ export default function OwnerCockpit({ setActiveTab }) {
 
         <div className="bg-white p-5 rounded-xl border border-slate-200/70 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">QC Pass First-Time Rate</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('qc_pass_rate')}</span>
             <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <CheckCircle2 size={18} />
             </div>
@@ -106,7 +108,7 @@ export default function OwnerCockpit({ setActiveTab }) {
 
         <div className="bg-white p-5 rounded-xl border border-slate-200/70 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Trader Outstanding Receivables</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('trader_receivables')}</span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
               <AlertTriangle size={18} />
             </div>
@@ -125,7 +127,7 @@ export default function OwnerCockpit({ setActiveTab }) {
         {/* Left 2 Cols: Machine Bay Status & Receivables */}
         <div className="lg:col-span-2 flex flex-col gap-6">
           
-          <Card title="Live Machine Floor Operations">
+          <Card title={t('live_machine_ops')}>
             <Table headers={['Machine Code', 'Name', 'Machine Type', 'Status', 'Hourly Rate', 'Quick Actions']}>
               {machines.length === 0 ? (
                 <TableRow><TableCell colSpan="6" className="text-center text-slate-400 py-4">No machine telemetry available.</TableCell></TableRow>
@@ -152,7 +154,7 @@ export default function OwnerCockpit({ setActiveTab }) {
             </Table>
           </Card>
 
-          <Card title="Trader Receivables Aging Breakdown">
+          <Card title={t('receivables_aging')}>
             <Table headers={['Trader Merchant', '0 - 30 Days', '31 - 60 Days', '61 - 90 Days', '90+ Days']}>
               {aging.length === 0 ? (
                 <TableRow><TableCell colSpan="5" className="text-center text-slate-400 py-4">No outstanding balances recorded.</TableCell></TableRow>
@@ -175,7 +177,7 @@ export default function OwnerCockpit({ setActiveTab }) {
         {/* Right 1 Col: Executive Actions & Staff Audit */}
         <div className="flex flex-col gap-6">
           
-          <Card title="Executive Approvals & Actions">
+          <Card title={t('executive_approvals')}>
             <div className="flex flex-col gap-2.5">
               <button 
                 onClick={() => setActiveTab('finance')}

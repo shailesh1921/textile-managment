@@ -2,35 +2,38 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, ClipboardList, Activity, CheckSquare, 
   Package, Truck, FileBarChart, ArrowRightLeft, X, LogOut, Menu, Search, Bell, Settings, Globe,
-  ShoppingCart, TrendingUp, Crown, UserCheck, ShieldCheck, ChevronDown, Check
+  ShoppingCart, TrendingUp, Crown, UserCheck, ShieldCheck, ChevronDown, Check, Languages
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from './ui';
 import { BottomNav } from './BottomNav';
-
-const navigation = [
-  { id: 'owner_cockpit', name: '👑 Owner Cockpit', icon: Crown, highlight: true },
-  { id: 'dashboard', name: '⚙️ Admin Dashboard', icon: LayoutDashboard },
-  { id: 'staff_entry', name: '👷‍♂️ Staff Data Entry', icon: UserCheck, highlight: true },
-  { id: 'masters', name: 'Master Data', icon: Users },
-  { id: 'jobs', name: 'Job Orders', icon: ClipboardList },
-  { id: 'production', name: 'Production', icon: Activity },
-  { id: 'jobwork', name: 'Job-Work Dispatches', icon: ArrowRightLeft },
-  { id: 'quality', name: 'Quality Control', icon: CheckSquare },
-  { id: 'inventory', name: 'Inventory', icon: Package },
-  { id: 'procurement', name: 'Procurement', icon: ShoppingCart },
-  { id: 'dispatch', name: 'Dispatch & GST', icon: Truck },
-  { id: 'sales', name: 'Sales', icon: TrendingUp },
-  { id: 'finance', name: 'Finance', icon: FileBarChart },
-  { id: 'reports', name: 'Reports', icon: FileBarChart },
-];
+import { useLanguage } from '../context/LanguageContext';
 
 export const Layout = ({ activeTab, setActiveTab, children }) => {
   const user = api.getUser();
+  const { lang, setLang, t } = useLanguage();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const [activeRole, setActiveRole] = useState('ADMIN'); // 'OWNER' | 'ADMIN' | 'STAFF'
+
+  const navigation = [
+    { id: 'owner_cockpit', name: t('nav_owner_cockpit'), icon: Crown, highlight: true },
+    { id: 'dashboard', name: t('nav_admin_dashboard'), icon: LayoutDashboard },
+    { id: 'staff_entry', name: t('nav_staff_entry'), icon: UserCheck, highlight: true },
+    { id: 'masters', name: t('nav_masters'), icon: Users },
+    { id: 'jobs', name: t('nav_jobs'), icon: ClipboardList },
+    { id: 'production', name: t('nav_production'), icon: Activity },
+    { id: 'jobwork', name: t('nav_jobwork'), icon: ArrowRightLeft },
+    { id: 'quality', name: t('nav_quality'), icon: CheckSquare },
+    { id: 'inventory', name: t('nav_inventory'), icon: Package },
+    { id: 'procurement', name: t('nav_procurement'), icon: ShoppingCart },
+    { id: 'dispatch', name: t('nav_dispatch'), icon: Truck },
+    { id: 'sales', name: t('nav_sales'), icon: TrendingUp },
+    { id: 'finance', name: t('nav_finance'), icon: FileBarChart },
+    { id: 'reports', name: t('nav_reports'), icon: FileBarChart },
+  ];
 
   const handleSwitchRole = (role) => {
     setActiveRole(role);
@@ -42,13 +45,19 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
 
   const getRoleLabel = () => {
     switch (activeRole) {
-      case 'OWNER': return { title: 'Mill Owner (Myself)', sub: 'EXECUTIVE OVERVIEW', icon: Crown, color: 'bg-amber-500 text-white' };
-      case 'STAFF': return { title: 'Floor Staff', sub: 'DATA ENTRY OPERATOR', icon: UserCheck, color: 'bg-emerald-600 text-white' };
-      default: return { title: 'Mill Administrator', sub: 'FULL ADMIN CONTROL', icon: ShieldCheck, color: 'bg-[#6B4EFF] text-white' };
+      case 'OWNER': return { title: t('owner_title'), sub: t('owner_sub'), icon: Crown, color: 'bg-amber-500 text-white' };
+      case 'STAFF': return { title: t('staff_title'), sub: t('staff_sub'), icon: UserCheck, color: 'bg-emerald-600 text-white' };
+      default: return { title: t('admin_title'), sub: t('admin_sub'), icon: ShieldCheck, color: 'bg-[#6B4EFF] text-white' };
     }
   };
 
   const currentRole = getRoleLabel();
+
+  const getLangBadge = () => {
+    if (lang === 'hi') return 'HI (हिंदी)';
+    if (lang === 'gu') return 'GU (ગુજરાતી)';
+    return 'EN (English)';
+  };
 
   return (
     <div className="flex h-screen bg-slate-50/50 text-slate-800 overflow-hidden font-sans">
@@ -61,7 +70,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
         />
       )}
 
-      {/* Sidebar - Light Background, w-[230px] */}
+      {/* Sidebar */}
       <aside 
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-100 bg-white shadow-sm transition-all duration-300 md:relative",
@@ -76,10 +85,9 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
               S
             </div>
             {!isSidebarCollapsed && (
-              <span className="font-extrabold text-sm text-slate-800 tracking-wide truncate">Sarv Uttam Mill</span>
+              <span className="font-extrabold text-sm text-slate-800 tracking-wide truncate">{t('mill_title')}</span>
             )}
           </div>
-          {/* Mobile close button */}
           <button 
             type="button"
             className="md:hidden text-slate-400 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:text-slate-600" 
@@ -89,7 +97,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
           </button>
         </div>
 
-        {/* Navigation Items (Icon + Label) */}
+        {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto py-3 px-3 flex flex-col gap-1 custom-scrollbar bg-white">
           {navigation.map((item) => {
             const Icon = item.icon;
@@ -101,7 +109,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                 onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
                 title={isSidebarCollapsed ? item.name : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 text-xs font-semibold tracking-wide transition-all duration-200 min-h-[40px] touch-manipulation",
+                  "flex items-center gap-3 px-3 py-2 text-xs font-semibold tracking-wide transition-all duration-200 min-h-[40px] touch-manipulation text-left",
                   active 
                     ? "bg-[#6B4EFF]/10 text-[#6B4EFF] rounded-[8px] font-bold" 
                     : item.highlight 
@@ -110,7 +118,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                 )}
               >
                 <Icon size={16} className={cn("shrink-0 stroke-[2px]", active ? "text-[#6B4EFF]" : "text-slate-400")} />
-                {!isSidebarCollapsed && <span className="truncate uppercase">{item.name}</span>}
+                {!isSidebarCollapsed && <span className="truncate">{item.name}</span>}
               </button>
             );
           })}
@@ -121,7 +129,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
           
           <button
             type="button"
-            onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+            onClick={() => { setIsRoleDropdownOpen(!isRoleDropdownOpen); setIsLangDropdownOpen(false); }}
             className={cn(
               "w-full flex items-center gap-2.5 p-2 rounded-lg border border-slate-200 bg-white hover:border-[#6B4EFF] transition-all text-left shadow-xs",
               isSidebarCollapsed ? "justify-center" : "justify-between"
@@ -144,7 +152,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
           {/* Role Switcher Menu Popup */}
           {isRoleDropdownOpen && (
             <div className="absolute bottom-16 left-3 right-3 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 py-1">Switch Active Workspace</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 py-1">{t('active_workspace')}</span>
               
               <button 
                 onClick={() => handleSwitchRole('OWNER')}
@@ -156,8 +164,8 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded bg-amber-500 text-white flex items-center justify-center text-xs"><Crown size={12} /></div>
                   <div>
-                    <span className="block font-bold">👑 Mill Owner (Myself)</span>
-                    <span className="text-[9px] text-slate-400 font-normal">Executive P&L, profit margins & audit</span>
+                    <span className="block font-bold">{t('owner_title')}</span>
+                    <span className="text-[9px] text-slate-400 font-normal">{t('owner_desc')}</span>
                   </div>
                 </div>
                 {activeRole === 'OWNER' && <Check size={14} className="text-amber-600" />}
@@ -173,8 +181,8 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded bg-[#6B4EFF] text-white flex items-center justify-center text-xs"><ShieldCheck size={12} /></div>
                   <div>
-                    <span className="block font-bold">⚙️ Mill Administrator</span>
-                    <span className="text-[9px] text-slate-400 font-normal">All masters, billing, settings & full data</span>
+                    <span className="block font-bold">{t('admin_title')}</span>
+                    <span className="text-[9px] text-slate-400 font-normal">{t('admin_desc')}</span>
                   </div>
                 </div>
                 {activeRole === 'ADMIN' && <Check size={14} className="text-[#6B4EFF]" />}
@@ -190,8 +198,8 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded bg-emerald-600 text-white flex items-center justify-center text-xs"><UserCheck size={12} /></div>
                   <div>
-                    <span className="block font-bold">👷‍♂️ Floor Staff</span>
-                    <span className="text-[9px] text-slate-400 font-normal">Add inwards, batch runs, QC & packing</span>
+                    <span className="block font-bold">{t('staff_title')}</span>
+                    <span className="text-[9px] text-slate-400 font-normal">{t('staff_desc')}</span>
                   </div>
                 </div>
                 {activeRole === 'STAFF' && <Check size={14} className="text-emerald-600" />}
@@ -206,10 +214,10 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
               "mt-2 flex w-full items-center gap-2 rounded-[8px] text-[11px] font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 p-2 transition-colors justify-start",
               isSidebarCollapsed ? "justify-center" : ""
             )}
-            title="Sign Out"
+            title={t('sign_out')}
           >
             <LogOut size={14} className="shrink-0 stroke-[2px]" />
-            {!isSidebarCollapsed && <span>SIGN OUT</span>}
+            {!isSidebarCollapsed && <span>{t('sign_out')}</span>}
           </button>
         </div>
       </aside>
@@ -246,7 +254,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
             </div>
           </div>
           
-          {/* Right alignment: Quick Role Pills, Search, Locale, Profile */}
+          {/* Right alignment: Quick Role Pills, Language Switcher, Profile */}
           <div className="flex items-center gap-3">
             
             {/* 3 Top Role Quick Switcher Buttons */}
@@ -258,7 +266,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                   activeRole === 'OWNER' ? "bg-amber-500 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                 )}
               >
-                👑 Myself (Owner)
+                {t('owner_myself')}
               </button>
               <button
                 onClick={() => handleSwitchRole('ADMIN')}
@@ -267,7 +275,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                   activeRole === 'ADMIN' ? "bg-[#6B4EFF] text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                 )}
               >
-                ⚙️ Mill Admin
+                {t('admin_role')}
               </button>
               <button
                 onClick={() => handleSwitchRole('STAFF')}
@@ -276,22 +284,66 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                   activeRole === 'STAFF' ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                 )}
               >
-                👷‍♂️ Staff Entry
+                {t('staff_role')}
               </button>
             </div>
 
-            {/* Locale Language Switcher */}
-            <button 
-              type="button"
-              className="flex items-center gap-1.5 text-slate-500 hover:text-[#6B4EFF] transition-colors text-xs font-bold px-2.5 py-1.5 rounded-[8px] border border-slate-200/60 bg-slate-50 min-h-[36px]"
-            >
-              <Globe size={13} className="stroke-[2px]" />
-              <span>EN / GU</span>
-            </button>
+            {/* Interactive Language Switcher Dropdown (English / Hindi / Gujarati) */}
+            <div className="relative">
+              <button 
+                type="button"
+                onClick={() => { setIsLangDropdownOpen(!isLangDropdownOpen); setIsRoleDropdownOpen(false); }}
+                className="flex items-center gap-1.5 text-slate-700 hover:text-[#6B4EFF] transition-colors text-xs font-bold px-2.5 py-1.5 rounded-[8px] border border-slate-200/80 bg-slate-50 hover:bg-white shadow-xs min-h-[36px]"
+              >
+                <Globe size={14} className="stroke-[2px] text-[#6B4EFF]" />
+                <span>{getLangBadge()}</span>
+                <ChevronDown size={12} className="text-slate-400" />
+              </button>
+
+              {/* Dropdown Menu for 3 Languages */}
+              {isLangDropdownOpen && (
+                <div className="absolute right-0 top-11 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 flex flex-col gap-1 w-44 animate-in fade-in slide-in-from-top-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 py-1">{t('language')}</span>
+                  
+                  <button
+                    onClick={() => { setLang('en'); setIsLangDropdownOpen(false); }}
+                    className={cn(
+                      "flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-left transition-all",
+                      lang === 'en' ? "bg-[#6B4EFF]/10 text-[#6B4EFF] font-bold" : "hover:bg-slate-50 text-slate-700"
+                    )}
+                  >
+                    <span>🇬🇧 English</span>
+                    {lang === 'en' && <Check size={14} className="text-[#6B4EFF]" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setLang('hi'); setIsLangDropdownOpen(false); }}
+                    className={cn(
+                      "flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-left transition-all",
+                      lang === 'hi' ? "bg-[#6B4EFF]/10 text-[#6B4EFF] font-bold" : "hover:bg-slate-50 text-slate-700"
+                    )}
+                  >
+                    <span>🇮🇳 हिंदी (Hindi)</span>
+                    {lang === 'hi' && <Check size={14} className="text-[#6B4EFF]" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setLang('gu'); setIsLangDropdownOpen(false); }}
+                    className={cn(
+                      "flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-left transition-all",
+                      lang === 'gu' ? "bg-[#6B4EFF]/10 text-[#6B4EFF] font-bold" : "hover:bg-slate-50 text-slate-700"
+                    )}
+                  >
+                    <span>🇮🇳 ગુજરાતી (Gujarati)</span>
+                    {lang === 'gu' && <Check size={14} className="text-[#6B4EFF]" />}
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Interactive User Profile / Role Badge */}
             <div 
-              onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+              onClick={() => { setIsRoleDropdownOpen(!isRoleDropdownOpen); setIsLangDropdownOpen(false); }}
               className="flex items-center gap-2 border-l border-slate-100 pl-3 cursor-pointer select-none"
             >
               <div className="flex flex-col text-right hidden sm:flex">

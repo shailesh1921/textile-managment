@@ -5,8 +5,10 @@ import {
   Plus, CheckCircle, Clock, FileText, Layers, Activity, 
   CheckSquare, Truck, ArrowRight, ShieldCheck, UserCheck 
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function StaffEntry({ setActiveTab }) {
+  const { t } = useLanguage();
   const [entryType, setEntryType] = useState('job_inward');
   const [parties, setParties] = useState([]);
   const [fabrics, setFabrics] = useState([]);
@@ -67,7 +69,7 @@ export default function StaffEntry({ setActiveTab }) {
         ordered_meters: parseFloat(inwardForm.ordered_meters),
         rate_per_meter: parseFloat(inwardForm.rate_per_meter)
       });
-      setSuccessMsg(`✓ Inward Order #${res.job_order_no || 'Created'} recorded successfully by Staff!`);
+      setSuccessMsg(`✓ Inward Order #${res.job_order_no || 'Created'} recorded successfully!`);
       setInwardForm({ party_id: '', fabric_id: '', challan_no: '', ordered_meters: '', rate_per_meter: '12.50' });
       fetchData();
     } catch (err) {
@@ -149,17 +151,17 @@ export default function StaffEntry({ setActiveTab }) {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-              Staff Portal • High-Speed Data Entry
+              {t('staff_portal_tag')}
             </span>
           </div>
-          <h2 className="text-xl font-bold">Floor Operator & Data Entry Console</h2>
+          <h2 className="text-xl font-bold">{t('staff_console_title')}</h2>
           <p className="text-emerald-100 text-xs mt-0.5">
-            Quickly enter inward greige, load production machines, record QC inspection, and generate packing lists.
+            {t('staff_console_sub')}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Badge className="bg-white text-emerald-800 font-bold px-3 py-1.5 text-xs">
-            <UserCheck size={14} className="mr-1 inline" /> Logged as Floor Staff
+            <UserCheck size={14} className="mr-1 inline" /> {t('logged_as_staff')}
           </Badge>
         </div>
       </div>
@@ -174,10 +176,10 @@ export default function StaffEntry({ setActiveTab }) {
       {/* Entry Category Navigation */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { id: 'job_inward', name: '1. Inward Greige Fabric', icon: FileText, desc: 'Log incoming trader challan' },
-          { id: 'batch_load', name: '2. Load Machine Batch', icon: Activity, desc: 'Assign lot to dyeing machine' },
-          { id: 'qc_check', name: '3. 4-Point QC Inspection', icon: CheckSquare, desc: 'Record defect score' },
-          { id: 'dispatch_pack', name: '4. Packing & Dispatch', icon: Truck, desc: 'Create delivery packing' }
+          { id: 'job_inward', name: t('tab_inward_greige'), icon: FileText, desc: t('tab_inward_sub') },
+          { id: 'batch_load', name: t('tab_load_batch'), icon: Activity, desc: t('tab_load_sub') },
+          { id: 'qc_check', name: t('tab_qc_inspect'), icon: CheckSquare, desc: t('tab_qc_sub') },
+          { id: 'dispatch_pack', name: t('tab_packing_dispatch'), icon: Truck, desc: t('tab_packing_sub') }
         ].map(item => {
           const Icon = item.icon;
           const active = entryType === item.id;
@@ -213,34 +215,34 @@ export default function StaffEntry({ setActiveTab }) {
           
           {/* TAB 1: INWARD GREIGE */}
           {entryType === 'job_inward' && (
-            <Card title="Quick Inward: Greige Fabric Entry">
+            <Card title={t('tab_inward_greige')}>
               <form onSubmit={handleInwardSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select
-                    label="Customer / Trader"
+                    label={t('form_customer_trader')}
                     value={inwardForm.party_id}
                     onChange={e => setInwardForm({ ...inwardForm, party_id: e.target.value })}
-                    options={[{ label: '-- Select Customer --', value: '' }, ...parties.map(p => ({ label: `${p.trade_name} (${p.city || 'Surat'})`, value: p.party_id }))]}
+                    options={[{ label: t('form_select_customer'), value: '' }, ...parties.map(p => ({ label: `${p.trade_name} (${p.city || 'Surat'})`, value: p.party_id }))]}
                     required
                   />
                   <Select
-                    label="Fabric Quality"
+                    label={t('form_fabric_quality')}
                     value={inwardForm.fabric_id}
                     onChange={e => setInwardForm({ ...inwardForm, fabric_id: e.target.value })}
-                    options={[{ label: '-- Select Fabric Quality --', value: '' }, ...fabrics.map(f => ({ label: `${f.fabric_name} (${f.fabric_category})`, value: f.fabric_id }))]}
+                    options={[{ label: t('form_select_fabric'), value: '' }, ...fabrics.map(f => ({ label: `${f.fabric_name} (${f.fabric_category})`, value: f.fabric_id }))]}
                     required
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Input
-                    label="Trader Challan No."
+                    label={t('form_challan_no')}
                     placeholder="e.g. CH-9821"
                     value={inwardForm.challan_no}
                     onChange={e => setInwardForm({ ...inwardForm, challan_no: e.target.value })}
                     required
                   />
                   <Input
-                    label="Received Meters"
+                    label={t('form_received_meters')}
                     type="number"
                     step="0.01"
                     placeholder="e.g. 2500"
@@ -249,7 +251,7 @@ export default function StaffEntry({ setActiveTab }) {
                     required
                   />
                   <Input
-                    label="Job Rate (₹ / Meter)"
+                    label={t('form_job_rate')}
                     type="number"
                     step="0.01"
                     value={inwardForm.rate_per_meter}
@@ -258,7 +260,7 @@ export default function StaffEntry({ setActiveTab }) {
                   />
                 </div>
                 <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11">
-                  {loading ? 'Submitting...' : '+ Submit & Create Inward Lot'}
+                  {loading ? 'Submitting...' : t('form_submit_inward')}
                 </Button>
               </form>
             </Card>
@@ -266,34 +268,34 @@ export default function StaffEntry({ setActiveTab }) {
 
           {/* TAB 2: MACHINE BATCH */}
           {entryType === 'batch_load' && (
-            <Card title="Quick Load: Machine Batch Run">
+            <Card title={t('tab_load_batch')}>
               <form onSubmit={handleBatchSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select
-                    label="Select Inward Lot"
+                    label={t('form_select_lot')}
                     value={batchForm.lot_id}
                     onChange={e => setBatchForm({ ...batchForm, lot_id: e.target.value })}
-                    options={[{ label: '-- Select Inward Lot --', value: '' }, ...lots.map(l => ({ label: `${l.lot_no} (${l.current_status})`, value: l.lot_id }))]}
+                    options={[{ label: `-- ${t('form_select_lot')} --`, value: '' }, ...lots.map(l => ({ label: `${l.lot_no} (${l.current_status})`, value: l.lot_id }))]}
                     required
                   />
                   <Select
-                    label="Dyeing Machine / Stenter"
+                    label={t('form_select_machine')}
                     value={batchForm.machine_id}
                     onChange={e => setBatchForm({ ...batchForm, machine_id: e.target.value })}
-                    options={[{ label: '-- Select Machine --', value: '' }, ...machines.map(m => ({ label: `${m.machine_name} (${m.machine_type})`, value: m.machine_id }))]}
+                    options={[{ label: `-- ${t('form_select_machine')} --`, value: '' }, ...machines.map(m => ({ label: `${m.machine_name} (${m.machine_type})`, value: m.machine_id }))]}
                     required
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select
-                    label="Operational Shift"
+                    label={t('form_shift')}
                     value={batchForm.shift}
                     onChange={e => setBatchForm({ ...batchForm, shift: e.target.value })}
-                    options={[{ label: 'A Shift (06:00 - 14:00)', value: 'A' }, { label: 'B Shift (14:00 - 22:00)', value: 'B' }, { label: 'C Shift (22:00 - 06:00)', value: 'C' }]}
+                    options={[{ label: t('form_shift_a'), value: 'A' }, { label: t('form_shift_b'), value: 'B' }, { label: t('form_shift_c'), value: 'C' }]}
                     required
                   />
                   <Input
-                    label="Fabric Mass (Weight in KG)"
+                    label={t('form_fabric_mass_kg')}
                     type="number"
                     step="0.1"
                     placeholder="e.g. 350.5"
@@ -303,7 +305,7 @@ export default function StaffEntry({ setActiveTab }) {
                   />
                 </div>
                 <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11">
-                  {loading ? 'Submitting...' : '+ Start Machine Batch Execution'}
+                  {loading ? 'Submitting...' : t('form_submit_batch')}
                 </Button>
               </form>
             </Card>
@@ -311,18 +313,18 @@ export default function StaffEntry({ setActiveTab }) {
 
           {/* TAB 3: QC INSPECTION */}
           {entryType === 'qc_check' && (
-            <Card title="Quick QC: 4-Point Inspection Entry">
+            <Card title={t('tab_qc_inspect')}>
               <form onSubmit={handleQcSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select
-                    label="Select Lot to Inspect"
+                    label={t('form_select_lot')}
                     value={qcForm.lot_id}
                     onChange={e => setQcForm({ ...qcForm, lot_id: e.target.value })}
-                    options={[{ label: '-- Select Lot --', value: '' }, ...lots.map(l => ({ label: `${l.lot_no} - ${l.current_status}`, value: l.lot_id }))]}
+                    options={[{ label: `-- ${t('form_select_lot')} --`, value: '' }, ...lots.map(l => ({ label: `${l.lot_no} - ${l.current_status}`, value: l.lot_id }))]}
                     required
                   />
                   <Input
-                    label="Meters Inspected"
+                    label={t('form_meters_inspected')}
                     type="number"
                     value={qcForm.meters_inspected}
                     onChange={e => setQcForm({ ...qcForm, meters_inspected: e.target.value })}
@@ -331,7 +333,7 @@ export default function StaffEntry({ setActiveTab }) {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Total Defect Points (ASTM 4-Point)"
+                    label={t('form_defect_points')}
                     type="number"
                     placeholder="e.g. 14"
                     value={qcForm.total_defect_points}
@@ -339,14 +341,14 @@ export default function StaffEntry({ setActiveTab }) {
                     required
                   />
                   <Input
-                    label="Inspector Remarks"
+                    label={t('form_inspector_remarks')}
                     placeholder="e.g. Minor selvedge curl, passed"
                     value={qcForm.remarks}
                     onChange={e => setQcForm({ ...qcForm, remarks: e.target.value })}
                   />
                 </div>
                 <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11">
-                  {loading ? 'Submitting...' : '+ Record QC Audit Result'}
+                  {loading ? 'Submitting...' : t('form_submit_qc')}
                 </Button>
               </form>
             </Card>
@@ -354,25 +356,25 @@ export default function StaffEntry({ setActiveTab }) {
 
           {/* TAB 4: DISPATCH PACKING */}
           {entryType === 'dispatch_pack' && (
-            <Card title="Quick Dispatch: Packing List Entry">
+            <Card title={t('tab_packing_dispatch')}>
               <form onSubmit={handleDispatchSubmit} className="flex flex-col gap-4">
                 <Select
-                  label="Select Finished Lot"
+                  label={t('form_select_lot')}
                   value={dispatchForm.lot_id}
                   onChange={e => setDispatchForm({ ...dispatchForm, lot_id: e.target.value })}
-                  options={[{ label: '-- Select Finished Lot --', value: '' }, ...lots.map(l => ({ label: `${l.lot_no} (${l.current_status})`, value: l.lot_id }))]}
+                  options={[{ label: `-- ${t('form_select_lot')} --`, value: '' }, ...lots.map(l => ({ label: `${l.lot_no} (${l.current_status})`, value: l.lot_id }))]}
                   required
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Input
-                    label="Total Rolls (Takas)"
+                    label={t('form_total_rolls')}
                     type="number"
                     value={dispatchForm.total_rolls}
                     onChange={e => setDispatchForm({ ...dispatchForm, total_rolls: e.target.value })}
                     required
                   />
                   <Input
-                    label="Finished Meters"
+                    label={t('form_finished_meters')}
                     type="number"
                     step="0.01"
                     value={dispatchForm.total_meters}
@@ -380,7 +382,7 @@ export default function StaffEntry({ setActiveTab }) {
                     required
                   />
                   <Input
-                    label="Finished Weight (KG)"
+                    label={t('form_finished_kg')}
                     type="number"
                     step="0.1"
                     value={dispatchForm.finished_kg}
@@ -389,7 +391,7 @@ export default function StaffEntry({ setActiveTab }) {
                   />
                 </div>
                 <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11">
-                  {loading ? 'Submitting...' : '+ Create Packing List & Ready for Dispatch'}
+                  {loading ? 'Submitting...' : t('form_submit_dispatch')}
                 </Button>
               </form>
             </Card>
@@ -399,15 +401,15 @@ export default function StaffEntry({ setActiveTab }) {
 
         {/* Right 1 Col: Operator Help & Live Lots */}
         <div className="flex flex-col gap-4">
-          <Card title="Operator Quick Actions">
+          <Card title={t('operator_quick_actions')}>
             <div className="flex flex-col gap-2.5">
               <button 
                 onClick={() => setActiveTab('jobs')}
                 className="w-full text-left p-3 rounded-lg border border-slate-100 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition-all flex items-center justify-between"
               >
                 <div>
-                  <span className="font-bold text-xs text-slate-800 block">Print QR Lot Traveler</span>
-                  <span className="text-[10px] text-slate-400">Generate barcoded slip</span>
+                  <span className="font-bold text-xs text-slate-800 block">{t('print_qr_traveler')}</span>
+                  <span className="text-[10px] text-slate-400">{t('print_qr_sub')}</span>
                 </div>
                 <ArrowRight size={14} className="text-slate-400" />
               </button>
@@ -417,8 +419,8 @@ export default function StaffEntry({ setActiveTab }) {
                 className="w-full text-left p-3 rounded-lg border border-slate-100 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition-all flex items-center justify-between"
               >
                 <div>
-                  <span className="font-bold text-xs text-slate-800 block">Log Utility Fuel (Coal/Steam)</span>
-                  <span className="text-[10px] text-slate-400">Enter shift power readings</span>
+                  <span className="font-bold text-xs text-slate-800 block">{t('log_utility_fuel')}</span>
+                  <span className="text-[10px] text-slate-400">{t('log_utility_sub')}</span>
                 </div>
                 <ArrowRight size={14} className="text-slate-400" />
               </button>
@@ -428,15 +430,15 @@ export default function StaffEntry({ setActiveTab }) {
                 className="w-full text-left p-3 rounded-lg border border-slate-100 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition-all flex items-center justify-between"
               >
                 <div>
-                  <span className="font-bold text-xs text-slate-800 block">Check Dye Chemical Stock</span>
-                  <span className="text-[10px] text-slate-400">View reorder alerts</span>
+                  <span className="font-bold text-xs text-slate-800 block">{t('check_chemical_stock')}</span>
+                  <span className="text-[10px] text-slate-400">{t('check_chemical_sub')}</span>
                 </div>
                 <ArrowRight size={14} className="text-slate-400" />
               </button>
             </div>
           </Card>
 
-          <Card title="Current Active Lots on Floor">
+          <Card title={t('active_lots_floor')}>
             <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
               {lots.length === 0 ? (
                 <span className="text-xs text-slate-400">No active lots currently found.</span>
