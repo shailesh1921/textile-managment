@@ -48,8 +48,8 @@ router.get('/lot-cost/:lotId', authenticateToken, async (req, res) => {
   const disp = await pool.query(
     `SELECT COALESCE(SUM(rdl.actual_qty * dcs.unit_cost),0) as recipe_cost 
      FROM recipe_dispensing_logs rdl
-     JOIN batch_runs br ON rdl.batch_id = br.batch_id AND br.tenant_id = rdl.tenant_id
-     LEFT JOIN dye_chemical_stock_batches dcs ON rdl.stock_batch_id = dcs.stock_batch_id AND dcs.tenant_id = rdl.tenant_id 
+     JOIN batch_runs br ON rdl.batch_id = br.batch_id
+     LEFT JOIN dye_chemical_stock_batches dcs ON rdl.stock_batch_id = dcs.stock_batch_id 
      WHERE br.lot_id = $1 AND br.tenant_id = $2`, 
     [lotId, req.tenant_id]
   );
