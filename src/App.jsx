@@ -16,11 +16,15 @@ const Reports = lazy(() => import('./pages/reports/Reports'));
 const JobWork = lazy(() => import('./pages/jobwork/JobWork'));
 const Procurement = lazy(() => import('./pages/procurement/Procurement'));
 const Sales = lazy(() => import('./pages/sales/Sales'));
+const StaffEntry = lazy(() => import('./pages/StaffEntry'));
+const OwnerCockpit = lazy(() => import('./pages/OwnerCockpit'));
 
 import { OnboardingWizardModal } from './components/OnboardingWizardModal';
 
 const pages = { 
   dashboard: Dashboard, 
+  owner_cockpit: OwnerCockpit,
+  staff_entry: StaffEntry,
   masters: Masters, 
   jobs: JobOrders, 
   production: Production, 

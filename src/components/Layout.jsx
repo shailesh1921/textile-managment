@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, ClipboardList, Activity, CheckSquare, 
   Package, Truck, FileBarChart, ArrowRightLeft, X, LogOut, Menu, Search, Bell, Settings, Globe,
-  ShoppingCart, TrendingUp
+  ShoppingCart, TrendingUp, Crown, UserCheck, ShieldCheck, ChevronDown, Check
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from './ui';
 import { BottomNav } from './BottomNav';
 
 const navigation = [
-  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
+  { id: 'owner_cockpit', name: '👑 Owner Cockpit', icon: Crown, highlight: true },
+  { id: 'dashboard', name: '⚙️ Admin Dashboard', icon: LayoutDashboard },
+  { id: 'staff_entry', name: '👷‍♂️ Staff Data Entry', icon: UserCheck, highlight: true },
   { id: 'masters', name: 'Master Data', icon: Users },
   { id: 'jobs', name: 'Job Orders', icon: ClipboardList },
   { id: 'production', name: 'Production', icon: Activity },
@@ -27,6 +29,26 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
   const user = api.getUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [activeRole, setActiveRole] = useState('ADMIN'); // 'OWNER' | 'ADMIN' | 'STAFF'
+
+  const handleSwitchRole = (role) => {
+    setActiveRole(role);
+    setIsRoleDropdownOpen(false);
+    if (role === 'OWNER') setActiveTab('owner_cockpit');
+    else if (role === 'STAFF') setActiveTab('staff_entry');
+    else setActiveTab('dashboard');
+  };
+
+  const getRoleLabel = () => {
+    switch (activeRole) {
+      case 'OWNER': return { title: 'Mill Owner (Myself)', sub: 'EXECUTIVE OVERVIEW', icon: Crown, color: 'bg-amber-500 text-white' };
+      case 'STAFF': return { title: 'Floor Staff', sub: 'DATA ENTRY OPERATOR', icon: UserCheck, color: 'bg-emerald-600 text-white' };
+      default: return { title: 'Mill Administrator', sub: 'FULL ADMIN CONTROL', icon: ShieldCheck, color: 'bg-[#6B4EFF] text-white' };
+    }
+  };
+
+  const currentRole = getRoleLabel();
 
   return (
     <div className="flex h-screen bg-slate-50/50 text-slate-800 overflow-hidden font-sans">
@@ -39,11 +61,11 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
         />
       )}
 
-      {/* Sidebar - Light Background, w-[220px] */}
+      {/* Sidebar - Light Background, w-[230px] */}
       <aside 
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-100 bg-white shadow-sm transition-all duration-300 md:relative",
-          isSidebarCollapsed ? "w-[72px]" : "w-[220px]",
+          isSidebarCollapsed ? "w-[72px]" : "w-[230px]",
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
@@ -67,8 +89,8 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
           </button>
         </div>
 
-        {/* Navigation Items (Icon + Label in Light Purple Background Pill) */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1 custom-scrollbar bg-white">
+        {/* Navigation Items (Icon + Label) */}
+        <nav className="flex-1 overflow-y-auto py-3 px-3 flex flex-col gap-1 custom-scrollbar bg-white">
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = activeTab === item.id;
@@ -79,10 +101,12 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
                 onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
                 title={isSidebarCollapsed ? item.name : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 min-h-[44px] touch-manipulation",
+                  "flex items-center gap-3 px-3 py-2 text-xs font-semibold tracking-wide transition-all duration-200 min-h-[40px] touch-manipulation",
                   active 
-                    ? "bg-[#6B4EFF]/10 text-[#6B4EFF] rounded-[8px]" 
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-[8px]"
+                    ? "bg-[#6B4EFF]/10 text-[#6B4EFF] rounded-[8px] font-bold" 
+                    : item.highlight 
+                      ? "text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-[8px] border border-slate-200/50"
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-[8px]"
                 )}
               >
                 <Icon size={16} className={cn("shrink-0 stroke-[2px]", active ? "text-[#6B4EFF]" : "text-slate-400")} />
@@ -92,29 +116,99 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
           })}
         </nav>
 
-        {/* Pinned Logout & Profile Info at Bottom */}
-        <div className="border-t border-slate-50 p-4 shrink-0 bg-white">
-          <div className={cn("flex items-center gap-2", isSidebarCollapsed ? "justify-center" : "")}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 font-bold shrink-0 border border-slate-200/50">
-              {user?.full_name?.charAt(0) || 'U'}
-            </div>
-            {!isSidebarCollapsed && (
-              <div className="flex flex-col truncate overflow-hidden text-left">
-                <span className="text-xs font-bold text-slate-800 truncate">{user?.full_name}</span>
-                <span className="text-[10px] text-slate-400 font-semibold truncate uppercase mt-0.5">{user?.role}</span>
-              </div>
+        {/* Pinned Role Switcher & Profile Info at Bottom */}
+        <div className="border-t border-slate-100 p-3 shrink-0 bg-slate-50/50 relative">
+          
+          <button
+            type="button"
+            onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+            className={cn(
+              "w-full flex items-center gap-2.5 p-2 rounded-lg border border-slate-200 bg-white hover:border-[#6B4EFF] transition-all text-left shadow-xs",
+              isSidebarCollapsed ? "justify-center" : "justify-between"
             )}
-          </div>
+          >
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg font-bold shrink-0 text-xs", currentRole.color)}>
+                <currentRole.icon size={15} />
+              </div>
+              {!isSidebarCollapsed && (
+                <div className="flex flex-col truncate overflow-hidden">
+                  <span className="text-xs font-bold text-slate-800 truncate">{currentRole.title}</span>
+                  <span className="text-[9px] text-slate-400 font-semibold truncate tracking-wider uppercase">{currentRole.sub}</span>
+                </div>
+              )}
+            </div>
+            {!isSidebarCollapsed && <ChevronDown size={14} className="text-slate-400 shrink-0" />}
+          </button>
+
+          {/* Role Switcher Menu Popup */}
+          {isRoleDropdownOpen && (
+            <div className="absolute bottom-16 left-3 right-3 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 py-1">Switch Active Workspace</span>
+              
+              <button 
+                onClick={() => handleSwitchRole('OWNER')}
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-lg text-xs font-bold text-left transition-all",
+                  activeRole === 'OWNER' ? "bg-amber-50 text-amber-900 border border-amber-200" : "hover:bg-slate-50 text-slate-700"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-amber-500 text-white flex items-center justify-center text-xs"><Crown size={12} /></div>
+                  <div>
+                    <span className="block font-bold">👑 Mill Owner (Myself)</span>
+                    <span className="text-[9px] text-slate-400 font-normal">Executive P&L, profit margins & audit</span>
+                  </div>
+                </div>
+                {activeRole === 'OWNER' && <Check size={14} className="text-amber-600" />}
+              </button>
+
+              <button 
+                onClick={() => handleSwitchRole('ADMIN')}
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-lg text-xs font-bold text-left transition-all",
+                  activeRole === 'ADMIN' ? "bg-indigo-50 text-indigo-900 border border-indigo-200" : "hover:bg-slate-50 text-slate-700"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-[#6B4EFF] text-white flex items-center justify-center text-xs"><ShieldCheck size={12} /></div>
+                  <div>
+                    <span className="block font-bold">⚙️ Mill Administrator</span>
+                    <span className="text-[9px] text-slate-400 font-normal">All masters, billing, settings & full data</span>
+                  </div>
+                </div>
+                {activeRole === 'ADMIN' && <Check size={14} className="text-[#6B4EFF]" />}
+              </button>
+
+              <button 
+                onClick={() => handleSwitchRole('STAFF')}
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-lg text-xs font-bold text-left transition-all",
+                  activeRole === 'STAFF' ? "bg-emerald-50 text-emerald-900 border border-emerald-200" : "hover:bg-slate-50 text-slate-700"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-emerald-600 text-white flex items-center justify-center text-xs"><UserCheck size={12} /></div>
+                  <div>
+                    <span className="block font-bold">👷‍♂️ Floor Staff</span>
+                    <span className="text-[9px] text-slate-400 font-normal">Add inwards, batch runs, QC & packing</span>
+                  </div>
+                </div>
+                {activeRole === 'STAFF' && <Check size={14} className="text-emerald-600" />}
+              </button>
+            </div>
+          )}
+
           <button 
             type="button"
             onClick={() => { api.logout(); window.location.reload(); }} 
             className={cn(
-              "mt-3 flex w-full items-center gap-2.5 rounded-[8px] text-xs font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 px-3 py-2.5 transition-colors min-h-[44px] justify-start",
+              "mt-2 flex w-full items-center gap-2 rounded-[8px] text-[11px] font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 p-2 transition-colors justify-start",
               isSidebarCollapsed ? "justify-center" : ""
             )}
             title="Sign Out"
           >
-            <LogOut size={16} className="shrink-0 stroke-[2px]" />
+            <LogOut size={14} className="shrink-0 stroke-[2px]" />
             {!isSidebarCollapsed && <span>SIGN OUT</span>}
           </button>
         </div>
@@ -152,17 +246,38 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
             </div>
           </div>
           
-          {/* Right alignment: Search, Locale, Settings, Profile */}
+          {/* Right alignment: Quick Role Pills, Search, Locale, Profile */}
           <div className="flex items-center gap-3">
             
-            {/* Search Input Bar */}
-            <div className="relative hidden lg:block w-48 xl:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search index..."
-                className="h-9 w-full rounded-[10px] border border-slate-200 bg-slate-50/50 pl-8 pr-4 text-xs shadow-xs transition-all focus:border-[#6B4EFF] focus:bg-white focus:outline-none"
-              />
+            {/* 3 Top Role Quick Switcher Buttons */}
+            <div className="hidden lg:flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200/60 gap-1">
+              <button
+                onClick={() => handleSwitchRole('OWNER')}
+                className={cn(
+                  "text-[11px] font-bold px-2.5 py-1 rounded-md transition-all flex items-center gap-1",
+                  activeRole === 'OWNER' ? "bg-amber-500 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                👑 Myself (Owner)
+              </button>
+              <button
+                onClick={() => handleSwitchRole('ADMIN')}
+                className={cn(
+                  "text-[11px] font-bold px-2.5 py-1 rounded-md transition-all flex items-center gap-1",
+                  activeRole === 'ADMIN' ? "bg-[#6B4EFF] text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                ⚙️ Mill Admin
+              </button>
+              <button
+                onClick={() => handleSwitchRole('STAFF')}
+                className={cn(
+                  "text-[11px] font-bold px-2.5 py-1 rounded-md transition-all flex items-center gap-1",
+                  activeRole === 'STAFF' ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                👷‍♂️ Staff Entry
+              </button>
             </div>
 
             {/* Locale Language Switcher */}
@@ -174,22 +289,17 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
               <span>EN / GU</span>
             </button>
 
-            {/* Settings Button */}
-            <button 
-              type="button"
-              className="text-slate-400 hover:text-slate-600 p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-[8px] hover:bg-slate-50 transition-colors"
+            {/* Interactive User Profile / Role Badge */}
+            <div 
+              onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+              className="flex items-center gap-2 border-l border-slate-100 pl-3 cursor-pointer select-none"
             >
-              <Settings size={18} />
-            </button>
-
-            {/* User Profile Avatar details */}
-            <div className="flex items-center gap-2 border-l border-slate-100 pl-3">
-              <div className="flex flex-col text-right hidden md:flex">
-                <span className="text-xs font-bold text-slate-800 leading-tight">{user?.full_name}</span>
-                <span className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase mt-0.5">{user?.role}</span>
+              <div className="flex flex-col text-right hidden sm:flex">
+                <span className="text-xs font-bold text-slate-800 leading-tight">{currentRole.title}</span>
+                <span className="text-[9px] text-slate-400 font-bold tracking-wide uppercase mt-0.5">{currentRole.sub}</span>
               </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#6B4EFF]/10 text-[#6B4EFF] font-bold text-sm border border-[#6B4EFF]/20 shadow-xs shrink-0">
-                {user?.full_name?.charAt(0) || 'U'}
+              <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg font-bold text-sm shadow-xs shrink-0 transition-transform active:scale-95", currentRole.color)}>
+                <currentRole.icon size={16} />
               </div>
             </div>
 
