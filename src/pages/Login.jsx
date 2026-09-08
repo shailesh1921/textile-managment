@@ -256,35 +256,6 @@ export default function Login({ onLoginSuccess }) {
             </form>
           )}
 
-          {/* Quick Demo Logins Info */}
-          <div className="pt-4 border-t border-slate-100 text-center flex flex-col gap-2 mt-1">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Demo Mill Accounts</span>
-            <div className="flex justify-center gap-3">
-              {[
-                { name: 'admin', label: 'Admin (admin)' },
-                { name: 'prod_mgr', label: 'Production (prod_mgr)' },
-                { name: 'qc1', label: 'QC (qc1)' }
-              ].map(item => (
-                <button 
-                  type="button"
-                  key={item.name}
-                  onClick={() => {
-                    setSignInForm({ username: item.name, password: 'admin123' });
-                    setError('');
-                  }}
-                  className="text-xs text-slate-600 hover:text-[#6B4EFF] border border-slate-200 bg-slate-50 px-2.5 py-1 rounded-md transition-all font-semibold hover:border-[#6B4EFF]"
-                >
-                  {item.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Version Footer */}
-          <div className="text-center text-[10px] text-slate-400 font-medium tracking-wide">
-            v1.2.0 • Surat Textile Management Suite
-          </div>
-
         </div>
       </div>
     </div>
