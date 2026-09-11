@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { 
   FileText, Activity, CheckSquare, Truck, UserCheck, 
-  CheckCircle2, Plus 
+  CheckCircle2, Plus, QrCode, Scan 
 } from 'lucide-react-native';
 import { ApiService } from '../../api';
 import { Header } from '../../components/Header';
@@ -13,6 +13,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { Select } from '../../components/Select';
+import { QRScannerModal } from '../../components/QRScannerModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
@@ -25,6 +26,7 @@ export const StaffEntryScreen = () => {
   const [lots, setLots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [scannerVisible, setScannerVisible] = useState(false);
 
   // Forms
   const [inwardForm, setInwardForm] = useState({
@@ -163,6 +165,23 @@ export const StaffEntryScreen = () => {
     }
   };
 
+  const handleScanQR = (scannedData: string) => {
+    // Check if scanned code matches a Lot No or contains lot info
+    const matchedLot = lots.find(l => 
+      l.lot_no === scannedData || 
+      l.barcode_value === scannedData || 
+      scannedData.includes(l.lot_no)
+    );
+    if (matchedLot) {
+      if (activeTab === 'batch') setBatchForm(prev => ({ ...prev, lot_id: String(matchedLot.lot_id) }));
+      if (activeTab === 'qc') setQcForm(prev => ({ ...prev, lot_id: String(matchedLot.lot_id) }));
+      if (activeTab === 'dispatch') setDispatchForm(prev => ({ ...prev, lot_id: String(matchedLot.lot_id) }));
+      Alert.alert('QR Scanned', `Matched Lot: ${matchedLot.lot_no} (${matchedLot.current_status})`);
+    } else {
+      Alert.alert('Scanned QR Code', `Raw Data: ${scannedData}`);
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       style={styles.container}
@@ -172,15 +191,32 @@ export const StaffEntryScreen = () => {
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         
-        {/* Banner */}
+        {/* Banner with Scan QR button */}
         <View style={styles.banner}>
-          <View style={styles.bannerTag}>
-            <UserCheck size={12} color="#FFF" />
-            <Text style={styles.bannerTagText}>{t('staff_title')}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm }}>
+            <View style={styles.bannerTag}>
+              <UserCheck size={12} color="#FFF" />
+              <Text style={styles.bannerTagText}>{t('staff_title')}</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.scanBtn}
+              onPress={() => setScannerVisible(true)}
+            >
+              <Scan size={14} color="#064E3B" />
+              <Text style={styles.scanBtnText}>Scan Lot QR</Text>
+            </TouchableOpacity>
           </View>
           <Text style={styles.bannerTitle}>{t('staff_banner_title')}</Text>
           <Text style={styles.bannerSub}>{t('staff_banner_sub')}</Text>
         </View>
+
+        <QRScannerModal
+          visible={scannerVisible}
+          onClose={() => setScannerVisible(false)}
+          onScan={handleScanQR}
+          title="Scan Lot / Roll Traveler QR"
+          subtitle="Point camera at the QR code printed on the physical lot card"
+        />
 
         {successMsg ? (
           <View style={styles.successBox}>
@@ -407,6 +443,20 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFF',
     letterSpacing: 0.8,
+  },
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#A7F3D0',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS.full,
+  },
+  scanBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#064E3B',
   },
   bannerTitle: {
     fontSize: 18,
