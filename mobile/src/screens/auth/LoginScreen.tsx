@@ -20,7 +20,7 @@ export const LoginScreen = () => {
   const [error, setError] = useState('');
   
   const [serverModalVisible, setServerModalVisible] = useState(false);
-  const [customServerUrl, setCustomServerUrl] = useState(api.defaults.baseURL || 'http://localhost:5005');
+  const [customServerUrl, setCustomServerUrl] = useState(api.defaults.baseURL || 'https://textile-managment.vercel.app');
 
   const handleLogin = async () => {
     if (!username || !password) {

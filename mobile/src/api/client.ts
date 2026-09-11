@@ -2,12 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Default base URL depending on platform / environment
-const DEFAULT_BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:5005', // Android Emulator Host Loopback
-  ios: 'http://localhost:5005',     // iOS Simulator
-  default: 'http://localhost:5005'
-});
+// Default base URL pointing to live cloud backend for instant universal access on physical devices & simulators
+const DEFAULT_BASE_URL = 'https://textile-managment.vercel.app';
 
 export const api = axios.create({
   baseURL: DEFAULT_BASE_URL,
