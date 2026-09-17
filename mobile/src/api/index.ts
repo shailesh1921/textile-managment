@@ -42,4 +42,8 @@ export const ApiService = {
   getSummaryReports: (): Promise<any> => api.get('/api/reports/summary'),
   getAgingReport: (): Promise<any> => api.get('/api/v1/finance/aging-report'),
   getLotCost: (lotId: number): Promise<any> => api.get(`/api/v1/finance/lot-cost/${lotId}`),
+
+  // VastraAI Voice Copilot & Operations Assistant
+  queryVoiceAssistant: (data: { query: string; language?: string }): Promise<any> => api.post('/api/v1/ai/voice-query', data),
+  getAIDiagnostics: (): Promise<any> => api.get('/api/v1/ai/diagnostics'),
 };

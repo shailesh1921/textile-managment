@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Globe, Crown, ShieldCheck, UserCheck, ChevronDown, Check, LogOut } from 'lucide-react-native';
+import { Globe, Crown, ShieldCheck, UserCheck, ChevronDown, Check, LogOut, Mic, Sparkles } from 'lucide-react-native';
 import { useLanguage, LanguageCode } from '../context/LanguageContext';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { COLORS, SPACING, RADIUS } from '../constants/theme';
+import { AIVoiceAssistantModal } from './AIVoiceAssistantModal';
 
 interface HeaderProps {
   title?: string;
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
   
   const [roleModalVisible, setRoleModalVisible] = useState(false);
   const [langModalVisible, setLangModalVisible] = useState(false);
+  const [aiModalVisible, setAiModalVisible] = useState(false);
 
   const getRoleInfo = () => {
     switch (activeRole) {
@@ -58,6 +60,16 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
         {/* Right Controls: Language & Role Badge */}
         <View style={styles.controlsRow}>
           
+          {/* AI Voice Assistant Button */}
+          <TouchableOpacity 
+            style={styles.aiButton}
+            onPress={() => setAiModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Sparkles size={11} color="#FBBF24" />
+            <Mic size={13} color="#FFF" />
+          </TouchableOpacity>
+
           {/* Language Switch Button */}
           <TouchableOpacity 
             style={styles.langButton}
@@ -193,6 +205,12 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
         </Pressable>
       </Modal>
 
+      {/* VastraAI Voice Assistant Modal */}
+      <AIVoiceAssistantModal
+        visible={aiModalVisible}
+        onClose={() => setAiModalVisible(false)}
+      />
+
     </View>
   );
 };
@@ -244,6 +262,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
+  },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: RADIUS.full,
+    backgroundColor: '#0F172A',
   },
   langButton: {
     flexDirection: 'row',

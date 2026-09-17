@@ -24,6 +24,7 @@ const ownerAnalyticsRoutes = require('./server/routes/ownerAnalytics');
 
 const salesRoutes = require('./server/routes/sales');
 const procurementRoutes = require('./server/routes/procurement');
+const aiAssistantRoutes = require('./server/routes/aiAssistant');
 
 const app = express();
 const PORT = process.env.PORT || 5005;
@@ -63,6 +64,8 @@ app.use('/api/v1/job-work', jobWorkRoutes);
 app.use('/api/v1/owner-analytics', ownerAnalyticsRoutes);
 app.use('/api/v1/sales', salesRoutes);
 app.use('/api/v1/procurement', procurementRoutes);
+app.use('/api/v1/ai', aiAssistantRoutes);
+app.use('/api/ai', aiAssistantRoutes);
 
 // Aliases for unified frontend routing
 app.use('/api', masterRoutes);

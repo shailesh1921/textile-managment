@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, ClipboardList, Activity, CheckSquare, 
   Package, Truck, FileBarChart, ArrowRightLeft, X, LogOut, Menu, Search, Bell, Settings, Globe,
-  ShoppingCart, TrendingUp, Crown, UserCheck, ShieldCheck, ChevronDown, Check, Languages
+  ShoppingCart, TrendingUp, Crown, UserCheck, ShieldCheck, ChevronDown, Check, Languages, Mic, Sparkles
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from './ui';
 import { BottomNav } from './BottomNav';
 import { useLanguage } from '../context/LanguageContext';
+import { AIVoiceCopilotModal } from './AIVoiceCopilotModal';
 
 export const Layout = ({ activeTab, setActiveTab, children }) => {
   const user = api.getUser();
@@ -16,6 +17,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const [isVoiceCopilotOpen, setIsVoiceCopilotOpen] = useState(false);
   const [activeRole, setActiveRole] = useState('ADMIN'); // 'OWNER' | 'ADMIN' | 'STAFF'
 
   const navigation = [
@@ -254,9 +256,21 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
             </div>
           </div>
           
-          {/* Right alignment: Quick Role Pills, Language Switcher, Profile */}
+          {/* Right alignment: AI Voice Copilot, Quick Role Pills, Language Switcher, Profile */}
           <div className="flex items-center gap-3">
             
+            {/* AI Voice Copilot Button */}
+            <button
+              type="button"
+              onClick={() => setIsVoiceCopilotOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#6B4EFF] to-[#4F46E5] hover:from-[#583CE0] hover:to-[#4338CA] text-white text-xs font-bold rounded-lg shadow-xs hover:shadow transition-all group active:scale-95"
+              title="VastraAI Voice Copilot (वस्त्र-AI / વસ્ત્ર-AI)"
+            >
+              <Sparkles size={13} className="text-amber-300 animate-pulse" />
+              <span className="hidden sm:inline font-extrabold">VastraAI</span>
+              <Mic size={13} className="text-white/90" />
+            </button>
+
             {/* 3 Top Role Quick Switcher Buttons */}
             <div className="hidden lg:flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200/60 gap-1">
               <button
@@ -367,6 +381,26 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
 
         {/* Mobile Bottom Navigation Bar */}
         <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+
+        {/* Floating Voice Copilot Trigger */}
+        <button
+          type="button"
+          onClick={() => setIsVoiceCopilotOpen(true)}
+          className="fixed bottom-20 md:bottom-6 right-6 z-40 flex items-center gap-2 bg-[#6B4EFF] hover:bg-[#583CE0] text-white px-3.5 py-2.5 rounded-full shadow-xl shadow-[#6B4EFF]/30 hover:scale-105 active:scale-95 transition-all group border-2 border-white"
+          title="Speak with VastraAI (वस्त्र-AI / વસ્ત્ર-AI)"
+        >
+          <div className="relative flex items-center justify-center">
+            <span className="absolute -inset-1 rounded-full bg-white/30 animate-ping" />
+            <Mic size={17} className="relative z-10" />
+          </div>
+          <span className="text-xs font-extrabold pr-1 hidden md:inline">Ask VastraAI</span>
+        </button>
+
+        {/* AI Voice Copilot Modal */}
+        <AIVoiceCopilotModal 
+          isOpen={isVoiceCopilotOpen} 
+          onClose={() => setIsVoiceCopilotOpen(false)} 
+        />
       </div>
     </div>
   );
