@@ -46,4 +46,11 @@ export const ApiService = {
   // VastraAI Voice Copilot & Operations Assistant
   queryVoiceAssistant: (data: { query: string; language?: string }): Promise<any> => api.post('/api/v1/ai/voice-query', data),
   getAIDiagnostics: (): Promise<any> => api.get('/api/v1/ai/diagnostics'),
+
+  // Next-Gen Innovations
+  getFloorLayout: (): Promise<any> => api.get('/api/v1/digital-twin/floor-layout'),
+  analyzeFabricImage: (data: any): Promise<any> => api.post('/api/v1/qc/analyze-fabric-image', data),
+  sendWhatsAppAlert: (data: any): Promise<any> => api.post('/api/v1/whatsapp/send-dispatch-alert', data),
+  optimizeRecipe: (data: any): Promise<any> => api.post('/api/v1/recipes/optimize', data),
+  getESGMetrics: (): Promise<any> => api.get('/api/v1/esg/metrics'),
 };

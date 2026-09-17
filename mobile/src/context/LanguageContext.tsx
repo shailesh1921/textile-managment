@@ -77,6 +77,15 @@ export const translations = {
     trader_receivables: 'Trader Receivables',
     receivables_aging: 'Trader Receivables Aging',
 
+    // Innovations
+    innovations_title: 'Next-Gen Mill Innovations',
+    innovations_sub: 'Digital Twin, AI Recipe, Vision QC, WhatsApp & ESG',
+    nav_digital_twin: 'Mill Digital Twin',
+    nav_recipe_optimizer: 'AI Recipe Lab',
+    nav_ai_vision_qc: 'AI Defect Vision',
+    nav_whatsapp_gateway: 'WhatsApp Bot',
+    nav_esg_sustainability: 'ESG Green Mill',
+
     // General
     loading: 'Loading data...',
     pull_to_refresh: 'Pull down to refresh',
@@ -156,6 +165,15 @@ export const translations = {
     trader_receivables: 'व्यापारी कुल बकाया',
     receivables_aging: 'व्यापारी बकाया (Aging Breakdown)',
 
+    // Innovations
+    innovations_title: 'नेक्स्ट-जेन मिल नवाचार',
+    innovations_sub: 'डिजिटल ट्विन, एआई रेसिपी, विजन QC, व्हाट्सएप व ESG',
+    nav_digital_twin: '🏭 मिल डिजिटल ट्विन',
+    nav_recipe_optimizer: '🧪 एआई कलर लैब व रेसिपी',
+    nav_ai_vision_qc: '🔍 एआई डिफेक्ट विजन (QC)',
+    nav_whatsapp_gateway: '💬 व्हाट्सएप क्लाइंट बॉट',
+    nav_esg_sustainability: '🌿 ग्रीन मिल व ऊर्जा ऑडिट',
+
     // General
     loading: 'डेटा लोड हो रहा है...',
     pull_to_refresh: 'रिफ्रेश करने के लिए नीचे खींचें',
@@ -234,6 +252,15 @@ export const translations = {
     qc_pass_rate: 'QC પાસ દર',
     trader_receivables: 'વેપારી કુલ બાકી રકમ',
     receivables_aging: 'વેપારી બાકી વિભાજન (Aging)',
+
+    // Innovations
+    innovations_title: 'નેક્સ્ટ-જેન મિલ નવીનતાઓ',
+    innovations_sub: 'ડિજિટલ ટ્વિન, એઆઈ રેસિપી, વિઝન QC, વોટ્સએપ અને ESG',
+    nav_digital_twin: '🏭 મિલ ડિજિટલ ટ્વિન',
+    nav_recipe_optimizer: '🧪 એઆઈ રેસિપી લેબ',
+    nav_ai_vision_qc: '🔍 એઆઈ ડિફેક્ટ વિઝન (QC)',
+    nav_whatsapp_gateway: '💬 વોટ્સએપ ક્લાયન્ટ બોટ',
+    nav_esg_sustainability: '🌿 ગ્રીન મિલ અને ઊર્જા ઓડિટ',
 
     // General
     loading: 'ડેટા લોડ થઈ રહ્યો છે...',
