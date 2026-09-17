@@ -18,6 +18,11 @@ const Procurement = lazy(() => import('./pages/procurement/Procurement'));
 const Sales = lazy(() => import('./pages/sales/Sales'));
 const StaffEntry = lazy(() => import('./pages/StaffEntry'));
 const OwnerCockpit = lazy(() => import('./pages/OwnerCockpit'));
+import { MillDigitalTwin } from './pages/production/MillDigitalTwin';
+import { AIVisionQC } from './pages/quality/AIVisionQC';
+import { WhatsAppGateway } from './pages/dispatch/WhatsAppGateway';
+import { RecipeOptimizer } from './pages/production/RecipeOptimizer';
+import { ESGSustainability } from './pages/reports/ESGSustainability';
 
 import { OnboardingWizardModal } from './components/OnboardingWizardModal';
 
@@ -25,6 +30,11 @@ const pages = {
   dashboard: Dashboard, 
   owner_cockpit: OwnerCockpit,
   staff_entry: StaffEntry,
+  digital_twin: MillDigitalTwin,
+  ai_vision_qc: AIVisionQC,
+  whatsapp_gateway: WhatsAppGateway,
+  recipe_optimizer: RecipeOptimizer,
+  esg_sustainability: ESGSustainability,
   masters: Masters, 
   jobs: JobOrders, 
   production: Production, 

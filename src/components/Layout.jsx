@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, ClipboardList, Activity, CheckSquare, 
   Package, Truck, FileBarChart, ArrowRightLeft, X, LogOut, Menu, Search, Bell, Settings, Globe,
-  ShoppingCart, TrendingUp, Crown, UserCheck, ShieldCheck, ChevronDown, Check, Languages, Mic, Sparkles
+  ShoppingCart, TrendingUp, Crown, UserCheck, ShieldCheck, ChevronDown, Check, Languages, Mic, Sparkles,
+  Gauge, FlaskConical, Eye, MessageSquare, Leaf
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from './ui';
@@ -24,6 +25,11 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
     { id: 'owner_cockpit', name: t('nav_owner_cockpit'), icon: Crown, highlight: true },
     { id: 'dashboard', name: t('nav_admin_dashboard'), icon: LayoutDashboard },
     { id: 'staff_entry', name: t('nav_staff_entry'), icon: UserCheck, highlight: true },
+    { id: 'digital_twin', name: 'Mill Digital Twin', icon: Gauge, badge: 'LIVE' },
+    { id: 'recipe_optimizer', name: 'AI Recipe Lab', icon: FlaskConical },
+    { id: 'ai_vision_qc', name: 'AI Defect Vision', icon: Eye },
+    { id: 'whatsapp_gateway', name: 'WhatsApp Bot', icon: MessageSquare },
+    { id: 'esg_sustainability', name: 'ESG Green Mill', icon: Leaf },
     { id: 'masters', name: t('nav_masters'), icon: Users },
     { id: 'jobs', name: t('nav_jobs'), icon: ClipboardList },
     { id: 'production', name: t('nav_production'), icon: Activity },

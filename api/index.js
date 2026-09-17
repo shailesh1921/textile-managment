@@ -23,6 +23,11 @@ const ownerAnalyticsRoutes = require('../server/routes/ownerAnalytics');
 const salesRoutes = require('../server/routes/sales');
 const procurementRoutes = require('../server/routes/procurement');
 const aiAssistantRoutes = require('../server/routes/aiAssistant');
+const digitalTwinRoutes = require('../server/routes/digitalTwin');
+const aiVisionQCRoutes = require('../server/routes/aiVisionQC');
+const whatsappRoutes = require('../server/routes/whatsappGateway');
+const recipeOptRoutes = require('../server/routes/recipeOptimizer');
+const esgRoutes = require('../server/routes/esgSustainability');
 
 const app = express();
 
@@ -62,6 +67,11 @@ app.use('/api/v1/sales', salesRoutes);
 app.use('/api/v1/procurement', procurementRoutes);
 app.use('/api/v1/ai', aiAssistantRoutes);
 app.use('/api/ai', aiAssistantRoutes);
+app.use('/api/v1/digital-twin', digitalTwinRoutes);
+app.use('/api/v1/qc', aiVisionQCRoutes);
+app.use('/api/v1/whatsapp', whatsappRoutes);
+app.use('/api/v1/recipes', recipeOptRoutes);
+app.use('/api/v1/esg', esgRoutes);
 
 // Aliases for unified frontend routing
 app.use('/api', masterRoutes);
