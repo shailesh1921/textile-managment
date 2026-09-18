@@ -288,4 +288,161 @@ router.post('/batches/:id/utility-log', authenticateToken, async (req, res) => {
   }
 });
 
+// Chemical Inventory Lock Check for active Batch
+router.get('/batches/:id/chemical-check', authenticateToken, async (req, res) => {
+  try {
+    const batchRes = await pool.query(
+      `SELECT br.*, r.recipe_code, r.liquor_ratio, r.shade_id
+       FROM batch_runs br
+       LEFT JOIN recipes r ON br.recipe_id = r.recipe_id AND r.tenant_id = br.tenant_id
+       WHERE br.batch_id = $1 AND br.tenant_id = $2`,
+      [req.params.id, req.tenant_id]
+    );
+
+    if (batchRes.rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
+    const batch = batchRes.rows[0];
+
+    if (!batch.recipe_id) {
+      return res.json({
+        can_start: true,
+        batch_id: batch.batch_id,
+        recipe_code: 'NO_RECIPE_ATTACHED',
+        message: 'No chemical recipe attached to this mechanical process stage.',
+        items: []
+      });
+    }
+
+    const weightKg = parseFloat(batch.fabric_weight_kg) || 250;
+    const mlr = parseFloat(batch.liquor_ratio) || 8;
+    const liquorVolumeL = weightKg * mlr;
+
+    const linesRes = await pool.query(
+      `SELECT rl.*, dc.item_name, dc.item_code, dc.category, dc.uom,
+              COALESCE((SELECT SUM(qty_on_hand) FROM dye_chemical_stock_batches sb WHERE sb.item_id = rl.item_id AND sb.tenant_id = $1), 0) as stock_on_hand
+       FROM recipe_lines rl
+       JOIN dye_chemicals dc ON rl.item_id = dc.item_id AND dc.tenant_id = $1
+       WHERE rl.recipe_id = $2 ORDER BY rl.step_sequence`,
+      [req.tenant_id, batch.recipe_id]
+    );
+
+    let allAvailable = true;
+    const items = linesRes.rows.map(line => {
+      let requiredQty = 0;
+      const dosage = parseFloat(line.dosage_value) || 0;
+      if (line.dosage_unit === 'PERCENT_OWF') {
+        requiredQty = (weightKg * dosage) / 100;
+      } else {
+        // GRAMS_PER_LITER
+        requiredQty = (liquorVolumeL * dosage) / 1000;
+      }
+      requiredQty = parseFloat(requiredQty.toFixed(3));
+      const onHand = parseFloat(line.stock_on_hand) || 0;
+      const isSufficient = onHand >= requiredQty;
+      if (!isSufficient) allAvailable = false;
+
+      return {
+        item_id: line.item_id,
+        item_code: line.item_code,
+        item_name: line.item_name,
+        category: line.category,
+        dosage_value: dosage,
+        dosage_unit: line.dosage_unit,
+        required_qty_kg: requiredQty,
+        stock_on_hand_kg: onHand,
+        shortage_kg: isSufficient ? 0 : parseFloat((requiredQty - onHand).toFixed(3)),
+        status: isSufficient ? 'IN_STOCK' : 'SHORTAGE'
+      };
+    });
+
+    res.json({
+      can_start: allAvailable,
+      batch_id: batch.batch_id,
+      recipe_code: batch.recipe_code,
+      fabric_weight_kg: weightKg,
+      liquor_ratio: mlr,
+      total_liquor_liters: liquorVolumeL,
+      total_chemicals_checked: items.length,
+      lock_status: allAvailable ? 'UNLOCKED_READY' : 'LOCKED_INSUFFICIENT_STOCK',
+      items
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pre-batch simulation chemical inventory check
+router.post('/check-chemical-stock', authenticateToken, async (req, res) => {
+  try {
+    const { recipe_id, fabric_weight_kg, liquor_ratio } = req.body;
+    const weightKg = parseFloat(fabric_weight_kg) || 250;
+    const mlr = parseFloat(liquor_ratio) || 8;
+    const liquorVolumeL = weightKg * mlr;
+
+    const linesRes = await pool.query(
+      `SELECT rl.*, dc.item_name, dc.item_code, dc.category, dc.uom,
+              COALESCE((SELECT SUM(qty_on_hand) FROM dye_chemical_stock_batches sb WHERE sb.item_id = rl.item_id AND sb.tenant_id = $1), 0) as stock_on_hand
+       FROM recipe_lines rl
+       JOIN dye_chemicals dc ON rl.item_id = dc.item_id AND dc.tenant_id = $1
+       WHERE rl.recipe_id = $2 ORDER BY rl.sequence_no`,
+      [req.tenant_id, recipe_id]
+    );
+
+    let allAvailable = true;
+    const items = linesRes.rows.map(line => {
+      let requiredQty = 0;
+      const dosagePct = parseFloat(line.dosage_pct) || 0;
+      const dosageGpl = parseFloat(line.dosage_gpl) || 0;
+      let dosage = 0;
+      let dosageUnit = 'PERCENT_OWF';
+
+      if (dosagePct > 0) {
+        dosage = dosagePct;
+        dosageUnit = 'PERCENT_OWF';
+        requiredQty = (weightKg * dosagePct) / 100;
+      } else if (dosageGpl > 0) {
+        dosage = dosageGpl;
+        dosageUnit = 'G_PER_LITER';
+        requiredQty = (liquorVolumeL * dosageGpl) / 1000;
+      } else {
+        const fallbackDosage = parseFloat(line.dosage_value) || 0;
+        dosage = fallbackDosage;
+        dosageUnit = line.dosage_unit || 'PERCENT_OWF';
+        if (dosageUnit === 'PERCENT_OWF') {
+          requiredQty = (weightKg * fallbackDosage) / 100;
+        } else {
+          requiredQty = (liquorVolumeL * fallbackDosage) / 1000;
+        }
+      }
+      requiredQty = parseFloat(requiredQty.toFixed(3));
+      const onHand = parseFloat(line.stock_on_hand) || 0;
+      const isSufficient = onHand >= requiredQty;
+      if (!isSufficient) allAvailable = false;
+
+      return {
+        item_id: line.item_id,
+        item_code: line.item_code,
+        item_name: line.item_name,
+        category: line.category,
+        dosage_value: dosage,
+        dosage_unit: dosageUnit,
+        required_qty_kg: requiredQty,
+        stock_on_hand_kg: onHand,
+        shortage_kg: isSufficient ? 0 : parseFloat((requiredQty - onHand).toFixed(3)),
+        status: isSufficient ? 'IN_STOCK' : 'SHORTAGE'
+      };
+    });
+
+    res.json({
+      can_start: allAvailable,
+      fabric_weight_kg: weightKg,
+      liquor_ratio: mlr,
+      total_liquor_liters: liquorVolumeL,
+      lock_status: allAvailable ? 'UNLOCKED_READY' : 'LOCKED_INSUFFICIENT_STOCK',
+      items
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

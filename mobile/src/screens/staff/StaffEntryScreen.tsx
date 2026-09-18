@@ -31,6 +31,7 @@ export const StaffEntryScreen = () => {
   // Forms
   const [inwardForm, setInwardForm] = useState({
     party_id: '', fabric_id: '', challan_no: '', ordered_meters: '', rate_per_meter: '12.50',
+    broker_name: '', lr_no: ''
   });
 
   const [batchForm, setBatchForm] = useState({
@@ -81,9 +82,11 @@ export const StaffEntryScreen = () => {
         challan_no: inwardForm.challan_no || `CH-${Date.now().toString().slice(-4)}`,
         ordered_meters: parseFloat(inwardForm.ordered_meters),
         rate_per_meter: parseFloat(inwardForm.rate_per_meter),
+        customer_po_ref: inwardForm.broker_name ? `Broker: ${inwardForm.broker_name}` : null,
+        inward_challan_ref: inwardForm.lr_no ? `LR: ${inwardForm.lr_no}` : null,
       });
       setSuccessMsg(`✓ Inward Order #${res?.job_order_no || 'Created'} successfully!`);
-      setInwardForm({ party_id: '', fabric_id: '', challan_no: '', ordered_meters: '', rate_per_meter: '12.50' });
+      setInwardForm({ party_id: '', fabric_id: '', challan_no: '', ordered_meters: '', rate_per_meter: '12.50', broker_name: '', lr_no: '' });
       fetchMasterData();
     } catch (err: any) {
       Alert.alert('Error', err.message);
@@ -122,17 +125,18 @@ export const StaffEntryScreen = () => {
     }
     setLoading(true);
     try {
-      const points = parseInt(qcForm.total_defect_points);
-      const pass = points <= 28;
+      const points = parseInt(qcForm.total_defect_points || '0');
+      const meters = parseFloat(qcForm.meters_inspected || '100');
+      const pointsPer100 = (points * 100) / (meters * (58 / 36));
+      const pass = pointsPer100 <= 28;
       await ApiService.submitQCInspection({
         lot_id: parseInt(qcForm.lot_id),
-        meters_inspected: parseFloat(qcForm.meters_inspected),
+        qty_inspected_meters: meters,
         total_defect_points: points,
-        overall_grade: pass ? 'GRADE_A' : 'GRADE_B',
-        inspection_result: pass ? 'PASSED' : 'REPROCESS',
-        remarks: qcForm.remarks,
+        result: pass ? 'PASS' : 'FAIL',
+        remarks: `${qcForm.remarks || 'Mobile QC'} [ASTM D5430: ${pointsPer100.toFixed(1)} pts/100m²]`,
       });
-      setSuccessMsg(`✓ QC Inspection: Result is ${pass ? 'PASSED (Grade A)' : 'REPROCESS'}`);
+      setSuccessMsg(`✓ ASTM D5430 QC Result: ${pass ? 'PASSED (Grade A)' : 'REPROCESS (Seconds)'}`);
       setQcForm({ lot_id: '', meters_inspected: '100', total_defect_points: '12', remarks: '' });
       fetchMasterData();
     } catch (err: any) {

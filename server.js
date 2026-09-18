@@ -77,7 +77,9 @@ app.use('/api/v1/whatsapp', whatsappRoutes);
 app.use('/api/v1/recipes', recipeOptRoutes);
 app.use('/api/v1/esg', esgRoutes);
 
-// Aliases for unified frontend routing
+// Aliases for unified frontend & mobile routing
+app.use('/api/v1/quality', qcRoutes);
+app.use('/api/v1/reports', reportRoutes);
 app.use('/api', masterRoutes);
 app.use('/api', jobRoutes);
 app.use('/api/production', prodRoutes);
@@ -89,7 +91,6 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/job-work', jobWorkRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/procurement', procurementRoutes);
-app.use('/api/inventory', invRoutes);
 
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));

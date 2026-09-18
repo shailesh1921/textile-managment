@@ -73,7 +73,9 @@ app.use('/api/v1/whatsapp', whatsappRoutes);
 app.use('/api/v1/recipes', recipeOptRoutes);
 app.use('/api/v1/esg', esgRoutes);
 
-// Aliases for unified frontend routing
+// Aliases for unified frontend & mobile routing
+app.use('/api/v1/quality', qcRoutes);
+app.use('/api/v1/reports', reportRoutes);
 app.use('/api', masterRoutes);
 app.use('/api', jobRoutes);
 app.use('/api/production', prodRoutes);

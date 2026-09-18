@@ -20,7 +20,8 @@ export default function StaffEntry({ setActiveTab }) {
 
   // Form states
   const [inwardForm, setInwardForm] = useState({
-    party_id: '', fabric_id: '', challan_no: '', ordered_meters: '', rate_per_meter: '12.50'
+    party_id: '', fabric_id: '', challan_no: '', ordered_meters: '', rate_per_meter: '12.50',
+    broker_name: '', lr_no: ''
   });
 
   const [batchForm, setBatchForm] = useState({
@@ -32,7 +33,7 @@ export default function StaffEntry({ setActiveTab }) {
   });
 
   const [dispatchForm, setDispatchForm] = useState({
-    lot_id: '', total_rolls: '10', total_meters: '1050', finished_kg: '185'
+    lot_id: '', total_rolls: '10', total_meters: '1050', gross_weight_kg: '189.5', core_tare_kg: '4.5', finished_kg: '185'
   });
 
   const fetchData = async () => {
@@ -40,7 +41,7 @@ export default function StaffEntry({ setActiveTab }) {
       const [p, f, m, l] = await Promise.all([
         api.get('/api/v1/parties').catch(() => []),
         api.get('/api/v1/fabrics').catch(() => []),
-        api.get('/api/production/machines/dashboard').catch(() => []),
+        api.get('/api/v1/production/machines/dashboard').catch(() => []),
         api.get('/api/v1/lots').catch(() => [])
       ]);
       setParties(p || []);
@@ -67,10 +68,12 @@ export default function StaffEntry({ setActiveTab }) {
         fabric_id: parseInt(inwardForm.fabric_id),
         challan_no: inwardForm.challan_no || `CH-${Date.now().toString().slice(-4)}`,
         ordered_meters: parseFloat(inwardForm.ordered_meters),
-        rate_per_meter: parseFloat(inwardForm.rate_per_meter)
+        rate_per_meter: parseFloat(inwardForm.rate_per_meter),
+        customer_po_ref: inwardForm.broker_name ? `Broker: ${inwardForm.broker_name}` : null,
+        inward_challan_ref: inwardForm.lr_no ? `LR: ${inwardForm.lr_no}` : null
       });
-      setSuccessMsg(`✓ Inward Order #${res.job_order_no || 'Created'} recorded successfully!`);
-      setInwardForm({ party_id: '', fabric_id: '', challan_no: '', ordered_meters: '', rate_per_meter: '12.50' });
+      setSuccessMsg(`✓ Inward Order #${res.job_order_no || 'Created'} recorded with thermal sticker labels ready!`);
+      setInwardForm({ party_id: '', fabric_id: '', challan_no: '', ordered_meters: '', rate_per_meter: '12.50', broker_name: '', lr_no: '' });
       fetchData();
     } catch (err) {
       alert(err.message);
@@ -83,13 +86,13 @@ export default function StaffEntry({ setActiveTab }) {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post('/api/production/batches', {
+      await api.post('/api/v1/production/batches', {
         lot_id: parseInt(batchForm.lot_id),
         machine_id: parseInt(batchForm.machine_id),
         shift: batchForm.shift,
         fabric_weight_kg: parseFloat(batchForm.weight_kg)
       });
-      setSuccessMsg('✓ Production Machine Run initiated and logged on floor!');
+      setSuccessMsg('✓ Production Machine Run initiated and verified against chemical stock!');
       setBatchForm({ lot_id: '', machine_id: '', shift: 'A', weight_kg: '' });
       fetchData();
     } catch (err) {
@@ -103,17 +106,19 @@ export default function StaffEntry({ setActiveTab }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const points = parseInt(qcForm.total_defect_points);
-      const pass = points <= 28;
-      await api.post('/api/v1/quality/inspect', {
+      const points = parseInt(qcForm.total_defect_points || 0);
+      const meters = parseFloat(qcForm.meters_inspected || 100);
+      // ASTM D5430 formula: (pts * 100) / (meters * (58/36))
+      const pointsPer100 = (points * 100) / (meters * (58 / 36));
+      const pass = pointsPer100 <= 28;
+      await api.post('/api/v1/qc/inspections', {
         lot_id: parseInt(qcForm.lot_id),
-        meters_inspected: parseFloat(qcForm.meters_inspected),
+        meters_inspected: meters,
         total_defect_points: points,
-        overall_grade: pass ? 'GRADE_A' : 'GRADE_B',
-        inspection_result: pass ? 'PASSED' : 'REPROCESS',
-        remarks: qcForm.remarks
+        result: pass ? 'PASS' : 'FAIL',
+        remarks: `${qcForm.remarks || 'Routine Floor Inspection'} [ASTM D5430: ${pointsPer100.toFixed(1)} pts/100m²]`
       });
-      setSuccessMsg(`✓ QC Inspection logged: Result is ${pass ? 'PASSED (Grade A)' : 'REPROCESS REQUIRED'}`);
+      setSuccessMsg(`✓ ASTM D5430 QC Inspection logged: Result is ${pass ? 'PASSED (Grade A)' : 'REPROCESS REQUIRED (Seconds)'}`);
       setQcForm({ lot_id: '', meters_inspected: '100', total_defect_points: '12', remarks: '' });
       fetchData();
     } catch (err) {
@@ -127,14 +132,20 @@ export default function StaffEntry({ setActiveTab }) {
     e.preventDefault();
     setLoading(true);
     try {
+      const gross = parseFloat(dispatchForm.gross_weight_kg || 0);
+      const tare = parseFloat(dispatchForm.core_tare_kg || 0);
+      const net = gross > 0 ? parseFloat((gross - tare).toFixed(2)) : parseFloat(dispatchForm.finished_kg);
+
       await api.post('/api/v1/dispatch/packing-lists', {
         lot_id: parseInt(dispatchForm.lot_id),
         total_rolls: parseInt(dispatchForm.total_rolls),
         total_meters: parseFloat(dispatchForm.total_meters),
-        total_kg: parseFloat(dispatchForm.finished_kg)
+        total_kg: net,
+        gross_weight_kg: gross,
+        tare_weight_kg: tare
       });
-      setSuccessMsg('✓ Finished Goods Packing List created for Dispatch!');
-      setDispatchForm({ lot_id: '', total_rolls: '10', total_meters: '1050', finished_kg: '185' });
+      setSuccessMsg(`✓ Finished Goods Packing List created! Net Weight: ${net} kg verified.`);
+      setDispatchForm({ lot_id: '', total_rolls: '10', total_meters: '1050', gross_weight_kg: '189.5', core_tare_kg: '4.5', finished_kg: '185' });
       fetchData();
     } catch (err) {
       alert(err.message);
@@ -259,6 +270,20 @@ export default function StaffEntry({ setActiveTab }) {
                     required
                   />
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Broker / Commission Agent"
+                    placeholder="e.g. Surat Cloth Agency / Dalal"
+                    value={inwardForm.broker_name}
+                    onChange={e => setInwardForm({ ...inwardForm, broker_name: e.target.value })}
+                  />
+                  <Input
+                    label="Transport LR / Bilty No."
+                    placeholder="e.g. LR-9921 / Shriram Transport"
+                    value={inwardForm.lr_no}
+                    onChange={e => setInwardForm({ ...inwardForm, lr_no: e.target.value })}
+                  />
+                </div>
                 <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11">
                   {loading ? 'Submitting...' : t('form_submit_inward')}
                 </Button>
@@ -347,6 +372,20 @@ export default function StaffEntry({ setActiveTab }) {
                     onChange={e => setQcForm({ ...qcForm, remarks: e.target.value })}
                   />
                 </div>
+
+                {/* ASTM D5430 Real-time Standard Preview */}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 block">ASTM D5430 4-Point System Standard</span>
+                    <span className="text-[11px] text-slate-500">
+                      Score: {((parseFloat(qcForm.total_defect_points || 0) * 100) / ((parseFloat(qcForm.meters_inspected) || 100) * (58 / 36))).toFixed(2)} pts/100m² (Tolerance ≤ 28.0)
+                    </span>
+                  </div>
+                  <Badge variant={((parseFloat(qcForm.total_defect_points || 0) * 100) / ((parseFloat(qcForm.meters_inspected) || 100) * (58 / 36))) <= 28 ? 'success' : 'danger'}>
+                    {((parseFloat(qcForm.total_defect_points || 0) * 100) / ((parseFloat(qcForm.meters_inspected) || 100) * (58 / 36))) <= 28 ? '✓ GRADE A (PASS)' : '✕ SECONDS (REPROCESS)'}
+                  </Badge>
+                </div>
+
                 <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11">
                   {loading ? 'Submitting...' : t('form_submit_qc')}
                 </Button>
@@ -365,7 +404,7 @@ export default function StaffEntry({ setActiveTab }) {
                   options={[{ label: `-- ${t('form_select_lot')} --`, value: '' }, ...lots.map(l => ({ label: `${l.lot_no} (${l.current_status})`, value: l.lot_id }))]}
                   required
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label={t('form_total_rolls')}
                     type="number"
@@ -381,13 +420,30 @@ export default function StaffEntry({ setActiveTab }) {
                     onChange={e => setDispatchForm({ ...dispatchForm, total_meters: e.target.value })}
                     required
                   />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Input
-                    label={t('form_finished_kg')}
+                    label="Gross Weight (Kg)"
                     type="number"
                     step="0.1"
-                    value={dispatchForm.finished_kg}
-                    onChange={e => setDispatchForm({ ...dispatchForm, finished_kg: e.target.value })}
+                    value={dispatchForm.gross_weight_kg}
+                    onChange={e => setDispatchForm({ ...dispatchForm, gross_weight_kg: e.target.value })}
                     required
+                  />
+                  <Input
+                    label="Core Tare Weight (Kg)"
+                    type="number"
+                    step="0.1"
+                    value={dispatchForm.core_tare_kg}
+                    onChange={e => setDispatchForm({ ...dispatchForm, core_tare_kg: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Net Finished Weight (Kg)"
+                    type="number"
+                    step="0.1"
+                    value={parseFloat(dispatchForm.gross_weight_kg || 0) > 0 ? (parseFloat(dispatchForm.gross_weight_kg) - parseFloat(dispatchForm.core_tare_kg || 0)).toFixed(1) : dispatchForm.finished_kg}
+                    disabled
                   />
                 </div>
                 <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11">
@@ -439,19 +495,30 @@ export default function StaffEntry({ setActiveTab }) {
           </Card>
 
           <Card title={t('active_lots_floor')}>
-            <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+            <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
               {lots.length === 0 ? (
                 <span className="text-xs text-slate-400">No active lots currently found.</span>
               ) : (
-                lots.slice(0, 5).map(l => (
-                  <div key={l.lot_id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/70 flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-xs text-slate-800 block">{l.lot_no}</span>
+                lots.slice(0, 6).map(l => (
+                  <div key={l.lot_id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="font-bold text-xs text-slate-800 block truncate">{l.lot_no}</span>
                       <span className="text-[10px] text-slate-400 font-mono">{l.barcode_value}</span>
                     </div>
-                    <Badge variant={l.current_status === 'COMPLETED' ? 'success' : 'default'} className="text-[10px]">
-                      {l.current_status}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a 
+                        href={`/api/v1/lots/${l.lot_id}/thermal-stickers-pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Print 4x2 Thermal Stickers"
+                        className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-2 py-1 rounded hover:bg-emerald-100"
+                      >
+                        🖨️ 4×2 Stickers
+                      </a>
+                      <Badge variant={l.current_status === 'COMPLETED' ? 'success' : 'default'} className="text-[10px]">
+                        {l.current_status}
+                      </Badge>
+                    </div>
                   </div>
                 ))
               )}

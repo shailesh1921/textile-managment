@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticateToken } = require('../middleware');
-const { nextDocNo, calcDeltaE } = require('../utils/helpers');
+const { nextDocNo, calcDeltaE, calcASTM4Point } = require('../utils/helpers');
 
 const router = express.Router();
 
@@ -39,32 +39,72 @@ router.get('/inspections', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/inspections', authenticateToken, async (req, res) => {
+const handleQCInspection = async (req, res) => {
   const b = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const lotCheck = await client.query(`SELECT lot_id FROM lots WHERE lot_id = $1 AND tenant_id = $2`, [b.lot_id, req.tenant_id]);
+    const lotCheck = await client.query(
+      `SELECT l.*, f.width_inches 
+       FROM lots l
+       JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id
+       JOIN fabrics f ON jo.fabric_id = f.fabric_id AND f.tenant_id = l.tenant_id
+       WHERE l.lot_id = $1 AND l.tenant_id = $2`,
+      [b.lot_id, req.tenant_id]
+    );
     if (!lotCheck.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Lot not found or access denied' });
     }
+    const lot = lotCheck.rows[0];
 
     const inspNo = await nextDocNo(req.tenant_id, 'QC', 'qc_inspections', 'inspection_no');
-    const totalPoints = (b.defects || []).reduce((s, d) => s + parseFloat(d.points_assigned || 0), 0);
+    
+    // Calculate total defect points from defect array or direct field
+    let totalPoints = 0;
+    if (b.defects && Array.isArray(b.defects) && b.defects.length > 0) {
+      totalPoints = b.defects.reduce((s, d) => s + parseFloat(d.points_assigned || 0), 0);
+    } else {
+      totalPoints = parseFloat(b.total_defect_points || 0);
+    }
+
+    const inspectedMeters = parseFloat(b.qty_inspected_meters || b.meters_inspected || 100);
+    const fabricWidth = parseFloat(lot.width_inches || 58);
+
+    // ASTM D5430 4-point calculation
+    const astmResult = calcASTM4Point(totalPoints, inspectedMeters, fabricWidth);
+    const finalResult = b.result || (astmResult.is_passed ? 'PASS' : 'FAIL');
+    const finalGrade = astmResult.grade;
+
     const result = await client.query(
       `INSERT INTO qc_inspections (tenant_id, inspection_no, lot_id, stage_id, inspection_type, inspection_system, total_points, qty_inspected_meters, result, inspector_id, remarks)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [req.tenant_id, inspNo, b.lot_id, b.stage_id, b.inspection_type, b.inspection_system, totalPoints, b.qty_inspected_meters, b.result || 'PENDING', req.user.user_id, b.remarks]
+      [
+        req.tenant_id,
+        inspNo,
+        b.lot_id,
+        b.stage_id || null,
+        b.inspection_type || 'FINAL_4PT',
+        'ASTM_D5430_4PT',
+        totalPoints,
+        inspectedMeters,
+        finalResult,
+        req.user.user_id,
+        `${b.remarks || ''} [ASTM D5430: ${astmResult.points_per_hundred_sqm} pts/100m² - ${finalGrade}]`
+      ]
     );
-    for (const d of b.defects || []) {
-      await client.query(
-        `INSERT INTO qc_defects (inspection_id, defect_code, severity, points_assigned, location) VALUES ($1,$2,$3,$4,$5)`,
-        [result.rows[0].inspection_id, d.defect_code, d.severity || 'MINOR', d.points_assigned || 0, d.location]
-      );
+
+    if (b.defects && Array.isArray(b.defects)) {
+      for (const d of b.defects) {
+        await client.query(
+          `INSERT INTO qc_defects (inspection_id, defect_code, severity, points_assigned, location) VALUES ($1,$2,$3,$4,$5)`,
+          [result.rows[0].inspection_id, d.defect_code, d.severity || 'MINOR', d.points_assigned || 0, d.location]
+        );
+      }
     }
-    if (b.result === 'PASS' && b.inspection_type === 'FINAL_4PT') {
-      const lot = await client.query(
+
+    if (finalResult === 'PASS') {
+      const fullLot = await client.query(
         `SELECT l.*, jo.*, f.fabric_id, jo.shade_id 
          FROM lots l 
          JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id
@@ -72,26 +112,44 @@ router.post('/inspections', authenticateToken, async (req, res) => {
          WHERE l.lot_id = $1 AND l.tenant_id = $2`,
         [b.lot_id, req.tenant_id]
       );
-      const lt = lot.rows[0];
+      const lt = fullLot.rows[0];
+      const dbGrade = astmResult.is_passed ? 'A' : 'B';
       await client.query(
         `INSERT INTO finished_goods_inventory (tenant_id, lot_id, job_order_id, fabric_id, shade_id, quality_grade, qty_meters, qty_kg, ownership_type, qc_inspection_id)
-         VALUES ($1,$2,$3,$4,$5,'A',$6,$7,$8,$9)`,
-        [req.tenant_id, b.lot_id, lt.job_order_id, lt.fabric_id, lt.shade_id, lt.finished_qty_meters || lt.grey_qty_meters_in, lt.finished_qty_kg || lt.grey_qty_kg_in, lt.ownership_type, result.rows[0].inspection_id]
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          req.tenant_id,
+          b.lot_id,
+          lt.job_order_id,
+          lt.fabric_id,
+          lt.shade_id,
+          dbGrade,
+          lt.finished_qty_meters || lt.grey_qty_meters_in,
+          lt.finished_qty_kg || lt.grey_qty_kg_in,
+          lt.ownership_type,
+          result.rows[0].inspection_id
+        ]
       );
       await client.query(`UPDATE lots SET current_status = 'COMPLETED' WHERE lot_id = $1 AND tenant_id = $2`, [b.lot_id, req.tenant_id]);
-    }
-    if (b.result === 'HOLD' || b.result === 'FAIL') {
+    } else {
       await client.query(`UPDATE lots SET current_status = 'QC_HOLD' WHERE lot_id = $1 AND tenant_id = $2`, [b.lot_id, req.tenant_id]);
     }
+
     await client.query('COMMIT');
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({
+      ...result.rows[0],
+      astm_4point: astmResult
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
   }
-});
+};
+
+router.post('/inspections', authenticateToken, handleQCInspection);
+router.post('/inspect', authenticateToken, handleQCInspection);
 
 router.post('/shade-approval', authenticateToken, async (req, res) => {
   const { lot_id, shade_id, measured_l, measured_a, measured_b } = req.body;

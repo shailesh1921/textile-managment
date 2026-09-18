@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticateToken, auditLog } = require('../middleware');
-const { nextDocNo, metersToKg, copyProcessStagesFromTemplate } = require('../utils/helpers');
+const { nextDocNo, metersToKg, copyProcessStagesFromTemplate, createStandardProcessStages } = require('../utils/helpers');
 
 const router = express.Router();
 
@@ -258,14 +258,41 @@ router.post('/lots/:lotId/takas', authenticateToken, async (req, res) => {
   try {
     await client.query('BEGIN');
     const inserted = [];
+    let totalMeters = 0;
+    let totalKg = 0;
     for (const t of takas) {
+      const m = parseFloat(t.meters) || 0;
+      const kg = parseFloat(t.weight_kg) || 0;
+      totalMeters += m;
+      totalKg += kg;
       const result = await client.query(
         `INSERT INTO lot_takas (tenant_id, lot_id, taka_no, meters, weight_kg, grade, remarks)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [req.tenant_id, req.params.lotId, t.taka_no, t.meters, t.weight_kg, t.grade || 'FRESH', t.remarks]
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (lot_id, taka_no) DO UPDATE 
+         SET meters = EXCLUDED.meters, weight_kg = EXCLUDED.weight_kg, grade = EXCLUDED.grade, remarks = EXCLUDED.remarks
+         RETURNING *`,
+        [req.tenant_id, req.params.lotId, t.taka_no, m, kg, t.grade || 'FRESH', t.remarks]
       );
       inserted.push(result.rows[0]);
     }
+
+    // Update lot inward totals
+    await client.query(
+      `UPDATE lots SET grey_qty_meters_in = COALESCE(grey_qty_meters_in, 0) + $1,
+                       grey_qty_kg_in = COALESCE(grey_qty_kg_in, 0) + $2
+       WHERE lot_id = $3 AND tenant_id = $4`,
+      [totalMeters, totalKg, req.params.lotId, req.tenant_id]
+    );
+
+    // Auto-create standard process route card stages if not yet existing
+    const existingStages = await client.query(
+      `SELECT stage_id FROM lot_process_stages WHERE lot_id = $1`,
+      [req.params.lotId]
+    );
+    if (existingStages.rows.length === 0) {
+      await createStandardProcessStages(client, req.tenant_id, req.params.lotId, totalMeters, totalKg);
+    }
+
     await client.query('COMMIT');
     res.status(201).json(inserted);
   } catch (err) {
@@ -304,8 +331,8 @@ router.get('/lots/:lotId/lot-card-pdf', authenticateToken, async (req, res) => {
     );
     
     const stagesRes = await pool.query(
-      `SELECT * FROM lot_process_stages WHERE lot_id = $1 AND tenant_id = $2 ORDER BY sequence_no`,
-      [lotId, req.tenant_id]
+      `SELECT * FROM lot_process_stages WHERE lot_id = $1 ORDER BY sequence_no`,
+      [lotId]
     );
 
     const doc = new PDFDocument({ margin: 40 });
@@ -344,6 +371,107 @@ router.get('/lots/:lotId/lot-card-pdf', authenticateToken, async (req, res) => {
     takasRes.rows.forEach(t => {
       doc.text(`Taka ${t.taka_no}: ${t.meters}m / ${t.weight_kg}kg (${t.grade})`);
     });
+
+    doc.end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Single Taka 4" x 2" Thermal Label PDF (288 x 144 points)
+router.get('/lots/:lotId/takas/:takaId/sticker-pdf', authenticateToken, async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit');
+    const QRCode = require('qrcode');
+    const { lotId, takaId } = req.params;
+
+    const query = `
+      SELECT t.*, l.lot_no, l.barcode_value, jo.job_order_no, p.trade_name as party_name, f.fabric_name
+      FROM lot_takas t
+      JOIN lots l ON t.lot_id = l.lot_id AND l.tenant_id = t.tenant_id
+      JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id
+      JOIN parties p ON jo.party_id = p.party_id AND p.tenant_id = l.tenant_id
+      JOIN fabrics f ON jo.fabric_id = f.fabric_id AND f.tenant_id = l.tenant_id
+      WHERE t.taka_id = $1 AND t.lot_id = $2 AND t.tenant_id = $3
+    `;
+    const r = await pool.query(query, [takaId, lotId, req.tenant_id]);
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Taka not found' });
+    const taka = r.rows[0];
+
+    // Standard 4" x 2" thermal sticker: 288 x 144 pt
+    const doc = new PDFDocument({ size: [288, 144], margin: 8 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="taka-sticker-${taka.taka_id}.pdf"`);
+    doc.pipe(res);
+
+    doc.rect(4, 4, 280, 136).stroke('#222222');
+    doc.font('Helvetica-Bold').fontSize(10).text('SARV UTTAM TEXTILE MILL', 10, 8, { width: 190 });
+    doc.font('Helvetica').fontSize(7).text(`Party: ${taka.party_name.substring(0, 28)}`, 10, 22);
+    doc.fontSize(7).text(`Fabric: ${taka.fabric_name}`, 10, 32);
+    doc.font('Helvetica-Bold').fontSize(9).text(`LOT: ${taka.lot_no}`, 10, 44);
+    doc.fontSize(11).fillColor('#10B981').text(`TAKA #${taka.taka_no}`, 10, 58).fillColor('#000000');
+    doc.font('Helvetica-Bold').fontSize(9).text(`LENGTH: ${taka.meters} M`, 10, 74);
+    doc.fontSize(9).text(`WEIGHT: ${taka.weight_kg} KG`, 10, 88);
+    doc.font('Helvetica').fontSize(7).text(`GRADE: ${taka.grade || 'FRESH'}  •  DATE: ${new Date().toISOString().slice(0, 10)}`, 10, 104);
+    doc.fontSize(6).text(`REF: ${taka.job_order_no}`, 10, 120);
+
+    const takaCode = `${taka.lot_no}-TK${String(taka.taka_no).padStart(3, '0')}`;
+    const qrData = await QRCode.toDataURL(takaCode);
+    doc.image(qrData, 195, 18, { width: 84 });
+    doc.font('Helvetica-Bold').fontSize(6).text(takaCode, 195, 108, { width: 84, align: 'center' });
+
+    doc.end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk 4" x 2" Thermal Stickers PDF for all Takas in Lot
+router.get('/lots/:lotId/thermal-stickers-pdf', authenticateToken, async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit');
+    const QRCode = require('qrcode');
+    const { lotId } = req.params;
+
+    const takasRes = await pool.query(
+      `SELECT t.*, l.lot_no, l.barcode_value, jo.job_order_no, p.trade_name as party_name, f.fabric_name
+       FROM lot_takas t
+       JOIN lots l ON t.lot_id = l.lot_id AND l.tenant_id = t.tenant_id
+       JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id
+       JOIN parties p ON jo.party_id = p.party_id AND p.tenant_id = l.tenant_id
+       JOIN fabrics f ON jo.fabric_id = f.fabric_id AND f.tenant_id = l.tenant_id
+       WHERE t.lot_id = $1 AND t.tenant_id = $2
+       ORDER BY t.taka_no`,
+      [lotId, req.tenant_id]
+    );
+
+    if (takasRes.rows.length === 0) return res.status(404).json({ error: 'No takas found for this lot' });
+    const takas = takasRes.rows;
+
+    const doc = new PDFDocument({ size: [288, 144], margin: 8, autoFirstPage: false });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="lot-${lotId}-thermal-stickers.pdf"`);
+    doc.pipe(res);
+
+    for (let i = 0; i < takas.length; i++) {
+      const taka = takas[i];
+      doc.addPage({ size: [288, 144], margin: 8 });
+      doc.rect(4, 4, 280, 136).stroke('#222222');
+      doc.font('Helvetica-Bold').fontSize(10).text('SARV UTTAM TEXTILE MILL', 10, 8, { width: 190 });
+      doc.font('Helvetica').fontSize(7).text(`Party: ${taka.party_name.substring(0, 28)}`, 10, 22);
+      doc.fontSize(7).text(`Fabric: ${taka.fabric_name}`, 10, 32);
+      doc.font('Helvetica-Bold').fontSize(9).text(`LOT: ${taka.lot_no}`, 10, 44);
+      doc.fontSize(11).fillColor('#10B981').text(`TAKA #${taka.taka_no}`, 10, 58).fillColor('#000000');
+      doc.font('Helvetica-Bold').fontSize(9).text(`LENGTH: ${taka.meters} M`, 10, 74);
+      doc.fontSize(9).text(`WEIGHT: ${taka.weight_kg} KG`, 10, 88);
+      doc.font('Helvetica').fontSize(7).text(`GRADE: ${taka.grade || 'FRESH'}  •  DATE: ${new Date().toISOString().slice(0, 10)}`, 10, 104);
+      doc.fontSize(6).text(`REF: ${taka.job_order_no}`, 10, 120);
+
+      const takaCode = `${taka.lot_no}-TK${String(taka.taka_no).padStart(3, '0')}`;
+      const qrData = await QRCode.toDataURL(takaCode);
+      doc.image(qrData, 195, 18, { width: 84 });
+      doc.font('Helvetica-Bold').fontSize(6).text(takaCode, 195, 108, { width: 84, align: 'center' });
+    }
 
     doc.end();
   } catch (err) {

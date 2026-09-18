@@ -10,7 +10,7 @@ export const ApiService = {
   getFabrics: (): Promise<any> => api.get('/api/v1/fabrics'),
   getShades: (): Promise<any> => api.get('/api/v1/shades'),
   getChemicals: (): Promise<any> => api.get('/api/v1/dye-chemicals'),
-  getMachines: (): Promise<any> => api.get('/api/production/machines/dashboard'),
+  getMachines: (): Promise<any> => api.get('/api/v1/production/machines/dashboard'),
 
   // Job Orders & Lots
   getJobOrders: (): Promise<any> => api.get('/api/v1/job-orders'),
@@ -20,15 +20,16 @@ export const ApiService = {
   addLotTakas: (lotId: number, takas: any[]): Promise<any> => api.post(`/api/v1/lots/${lotId}/takas`, { takas }),
 
   // Production & Batches
-  getBatches: (): Promise<any> => api.get('/api/production/batches'),
-  createBatch: (data: any): Promise<any> => api.post('/api/production/batches', data),
-  updateBatchStatus: (batchId: number, status: string): Promise<any> => api.patch(`/api/production/batches/${batchId}/status`, { status }),
+  getBatches: (): Promise<any> => api.get('/api/v1/production/batches'),
+  createBatch: (data: any): Promise<any> => api.post('/api/v1/production/batches', data),
+  updateBatchStatus: (batchId: number, status: string): Promise<any> => api.patch(`/api/v1/production/batches/${batchId}/status`, { status }),
   getUtilityLogs: (batchId: number): Promise<any> => api.get(`/api/v1/production/batches/${batchId}/utility-log`),
   addUtilityLog: (batchId: number, data: any): Promise<any> => api.post(`/api/v1/production/batches/${batchId}/utility-log`, data),
+  checkChemicalStock: (data: any): Promise<any> => api.post('/api/v1/production/check-chemical-stock', data),
 
   // Quality Control
-  getQCQueue: (): Promise<any> => api.get('/api/v1/quality/queue'),
-  submitQCInspection: (data: any): Promise<any> => api.post('/api/v1/quality/inspect', data),
+  getQCQueue: (): Promise<any> => api.get('/api/v1/qc/queue'),
+  submitQCInspection: (data: any): Promise<any> => api.post('/api/v1/qc/inspections', data),
 
   // Inventory & Stock
   getMaterials: (): Promise<any> => api.get('/api/v1/inventory/materials'),
@@ -39,7 +40,7 @@ export const ApiService = {
   getChallans: (): Promise<any> => api.get('/api/v1/dispatch/challans'),
 
   // Finance & Executive Reports
-  getSummaryReports: (): Promise<any> => api.get('/api/reports/summary'),
+  getSummaryReports: (): Promise<any> => api.get('/api/v1/reports/summary'),
   getAgingReport: (): Promise<any> => api.get('/api/v1/finance/aging-report'),
   getLotCost: (lotId: number): Promise<any> => api.get(`/api/v1/finance/lot-cost/${lotId}`),
 

@@ -5,9 +5,11 @@ function calculateGstTax(partyStateCode, millStateCode, lines) {
   let sgst = 0;
   let igst = 0;
   const computedLines = lines.map((line) => {
-    const taxable = parseFloat(line.taxable_value) || 0;
-    const rate = parseFloat(line.gst_rate) || 18;
-    const tax = (taxable * rate) / 100;
+    const qty = parseFloat(line.qty) || 0;
+    const rate = parseFloat(line.rate) || 0;
+    const taxable = line.taxable_value !== undefined ? parseFloat(line.taxable_value) || 0 : parseFloat((qty * rate).toFixed(2));
+    const rate_pct = parseFloat(line.gst_rate) || 18;
+    const tax = parseFloat(((taxable * rate_pct) / 100).toFixed(2));
     taxableTotal += taxable;
     let lineCgst = 0;
     let lineSgst = 0;

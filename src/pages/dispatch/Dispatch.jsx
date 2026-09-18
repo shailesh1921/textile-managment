@@ -300,10 +300,10 @@ export default function Dispatch() {
       {/* Challans Tab */}
       {tab === 'challans' && (
         <Card title="Job Work Delivery Challans (Section 143, CGST Rules)">
-          <Table headers={['Challan Number', 'Trader Party', 'Dispatch Date', 'Total Meters', 'Total Weight', 'Vehicle No', 'LR Code', 'Status']}>
+          <Table headers={['Challan Number', 'Trader Party', 'Dispatch Date', 'Total Meters', 'Total Weight', 'Vehicle No', 'LR Code', 'Status', 'Print Action']}>
             {challans.length === 0 ? (
               <tr>
-                <td colSpan="8" className="px-6 py-10 text-center text-slate-400">
+                <td colSpan="9" className="px-6 py-10 text-center text-slate-400">
                   No delivery challans generated.
                 </td>
               </tr>
@@ -318,6 +318,16 @@ export default function Dispatch() {
                   <td className="px-6 py-3.5 font-mono">{c.vehicle_no || '—'}</td>
                   <td className="px-6 py-3.5 text-slate-400 font-semibold">{c.lr_no || '—'}</td>
                   <td className="px-6 py-3.5"><Badge status={c.status}>{c.status}</Badge></td>
+                  <td className="px-6 py-3.5">
+                    <a 
+                      href={`/api/v1/dispatch/challans/${c.challan_id}/pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 font-bold text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded hover:bg-emerald-100"
+                    >
+                      📄 PDF Challan
+                    </a>
+                  </td>
                 </tr>
               ))
             )}
