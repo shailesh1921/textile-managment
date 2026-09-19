@@ -25,6 +25,50 @@ router.get('/job-orders', authenticateToken, async (req, res) => {
   }
 });
 
+// Public lot/challan tracking for Trader Self-Service (no authentication required)
+router.get('/lots/track', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'Please provide a Lot Number, LR Number, or Job Order Number.' });
+
+    const result = await pool.query(
+      `SELECT l.lot_no, l.current_status, l.grey_meters, l.grey_kg, l.barcode_value,
+              jo.job_order_no, p.trade_name as party_name, f.fabric_name, s.shade_name,
+              (SELECT process_name FROM lot_process_stages WHERE lot_id = l.lot_id AND status = 'IN_PROGRESS' LIMIT 1) as stage
+       FROM lots l
+       JOIN job_orders jo ON l.job_order_id = jo.job_order_id AND jo.tenant_id = l.tenant_id
+       JOIN parties p ON jo.party_id = p.party_id AND p.tenant_id = l.tenant_id
+       JOIN fabrics f ON jo.fabric_id = f.fabric_id AND f.tenant_id = l.tenant_id
+       LEFT JOIN shades s ON jo.shade_id = s.shade_id AND s.tenant_id = l.tenant_id
+       WHERE l.lot_no ILIKE $1 OR jo.job_order_no ILIKE $1 OR l.barcode_value ILIKE $1
+       LIMIT 5`,
+      [`%${q}%`]
+    );
+
+    // Also search by LR number in dispatch challans
+    if (result.rows.length === 0) {
+      const lrResult = await pool.query(
+        `SELECT dc.challan_no, dc.vehicle_no, dc.lr_no, dc.status, dc.total_qty_meters, dc.total_qty_kg,
+                p.trade_name as party_name
+         FROM dispatch_challans dc
+         JOIN parties p ON dc.party_id = p.party_id AND p.tenant_id = dc.tenant_id
+         WHERE dc.lr_no ILIKE $1 OR dc.challan_no ILIKE $1
+         LIMIT 5`,
+        [`%${q}%`]
+      );
+      if (lrResult.rows.length > 0) {
+        const r = lrResult.rows[0];
+        return res.json({ lot_no: r.challan_no, current_status: r.status, stage: `LR: ${r.lr_no || 'N/A'} | Vehicle: ${r.vehicle_no || 'N/A'}`, party_name: r.party_name });
+      }
+    }
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'No matching lot or challan found.' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/lots', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(

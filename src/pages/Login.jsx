@@ -4,7 +4,7 @@ import { Button, Input, Select, Badge } from '../components/ui';
 import { Lock, User, Mail, Building, Shield, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { HlsBackgroundVideo } from '../components/HlsBackgroundVideo';
 
-export default function Login({ onLoginSuccess }) {
+export default function Login({ onLoginSuccess, onBack }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -254,6 +254,12 @@ export default function Login({ onLoginSuccess }) {
                 {loading ? 'Creating...' : 'Register Profile'} <ChevronRight size={14} />
               </Button>
             </form>
+          )}
+          {onBack && (
+            <button type="button" onClick={onBack}
+              className="text-xs text-slate-400 hover:text-[#6B4EFF] font-semibold text-center transition-colors mt-1">
+              ← Back to Homepage
+            </button>
           )}
 
         </div>

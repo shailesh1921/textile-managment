@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { api } from './lib/api';
 import Login from './pages/Login';
+import LandingPage from './pages/LandingPage';
 import { Layout } from './components/Layout';
 import Dashboard from './pages/Dashboard';
 
@@ -54,6 +55,8 @@ export default function App() {
   const [tab, setTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -74,6 +77,7 @@ export default function App() {
 
   const handleLoginSuccess = (userObj, tenantObj) => {
     setUser(userObj);
+    setShowLogin(false);
     if (tenantObj) {
       setTenant(tenantObj);
       if (!tenantObj.onboarding_completed) {
@@ -82,16 +86,40 @@ export default function App() {
     }
   };
 
-  if (loading) return (
+  // 1-Click Demo: auto-login with demo credentials
+  const handleDemoLogin = async () => {
+    setDemoLoading(true);
+    try {
+      const data = await api.post('/api/auth/login', { username: 'admin', password: 'admin123' });
+      api.setToken(data.access_token);
+      api.setUser(data.user);
+      handleLoginSuccess(data.user, data.tenant);
+    } catch {
+      // Fallback: if demo login fails, show the login page
+      setShowLogin(true);
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
+  if (loading || demoLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#F3F1F7] text-slate-700">
       <div className="flex flex-col items-center gap-3">
         <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        <span className="text-sm font-semibold tracking-wide text-slate-600">Loading Surat Textile ERP...</span>
+        <span className="text-sm font-semibold tracking-wide text-slate-600">
+          {demoLoading ? 'Launching Interactive Demo...' : 'Loading Surat Textile ERP...'}
+        </span>
       </div>
     </div>
   );
 
-  if (!user) return <Login onLoginSuccess={handleLoginSuccess} />;
+  if (!user) {
+    // Show Login page if user clicked "Sign In", otherwise show Landing Page
+    if (showLogin) {
+      return <Login onLoginSuccess={handleLoginSuccess} onBack={() => setShowLogin(false)} />;
+    }
+    return <LandingPage onSignIn={() => setShowLogin(true)} onDemo={handleDemoLogin} />;
+  }
 
   const Page = pages[tab] || Dashboard;
   return (
