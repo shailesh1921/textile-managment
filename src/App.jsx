@@ -19,6 +19,7 @@ const Procurement = lazy(() => import('./pages/procurement/Procurement'));
 const Sales = lazy(() => import('./pages/sales/Sales'));
 const StaffEntry = lazy(() => import('./pages/StaffEntry'));
 const OwnerCockpit = lazy(() => import('./pages/OwnerCockpit'));
+const MillProfile = lazy(() => import('./pages/settings/MillProfile'));
 import { MillDigitalTwin } from './pages/production/MillDigitalTwin';
 import { AIVisionQC } from './pages/quality/AIVisionQC';
 import { WhatsAppGateway } from './pages/dispatch/WhatsAppGateway';
@@ -31,6 +32,7 @@ const pages = {
   dashboard: Dashboard, 
   owner_cockpit: OwnerCockpit,
   staff_entry: StaffEntry,
+  settings: MillProfile,
   digital_twin: MillDigitalTwin,
   ai_vision_qc: AIVisionQC,
   whatsapp_gateway: WhatsAppGateway,
@@ -56,6 +58,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [authMode, setAuthMode] = useState('signin');
   const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
@@ -114,11 +117,23 @@ export default function App() {
   );
 
   if (!user) {
-    // Show Login page if user clicked "Sign In", otherwise show Landing Page
+    // Show Login page if user clicked "Sign In" or "Register", otherwise show Landing Page
     if (showLogin) {
-      return <Login onLoginSuccess={handleLoginSuccess} onBack={() => setShowLogin(false)} />;
+      return (
+        <Login 
+          initialTab={authMode}
+          onLoginSuccess={handleLoginSuccess} 
+          onBack={() => setShowLogin(false)} 
+        />
+      );
     }
-    return <LandingPage onSignIn={() => setShowLogin(true)} onDemo={handleDemoLogin} />;
+    return (
+      <LandingPage 
+        onSignIn={() => { setAuthMode('signin'); setShowLogin(true); }} 
+        onRegister={() => { setAuthMode('signup'); setShowLogin(true); }}
+        onDemo={handleDemoLogin} 
+      />
+    );
   }
 
   const Page = pages[tab] || Dashboard;

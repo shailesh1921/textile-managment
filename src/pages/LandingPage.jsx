@@ -190,7 +190,7 @@ function AuroraMesh() {
 /* ═══════════════════════════════════════════════════════════════
    NAVBAR (Frosted Glass on Scroll)
    ═══════════════════════════════════════════════════════════════ */
-function Navbar({ onSignIn, onDemo, onTrack }) {
+function Navbar({ onSignIn, onRegister, onDemo, onTrack }) {
   const scrolled = useScrolledNavbar();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navLinks = [
@@ -228,17 +228,21 @@ function Navbar({ onSignIn, onDemo, onTrack }) {
             ))}
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <button onClick={onTrack}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-400 hover:text-white border border-white/[0.1] hover:border-white/[0.2] rounded-xl transition-all duration-300 hover:bg-white/[0.04]">
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white border border-white/[0.1] hover:border-white/[0.2] rounded-xl transition-all duration-300 hover:bg-white/[0.04]">
               <Search size={13} /> Track Lot
             </button>
             <button onClick={onDemo}
-              className="group inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(16,185,129,0.25)] hover:scale-[1.03]">
+              className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 rounded-xl border border-white/[0.1] transition-all duration-300">
               <Zap size={13} /> Demo
             </button>
+            <button onClick={onRegister}
+              className="group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:scale-[1.03]">
+              <Sparkles size={12} /> Register Mill
+            </button>
             <button onClick={onSignIn}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-sm rounded-xl border border-white/[0.1] hover:border-white/[0.2] transition-all duration-300">
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-sm rounded-xl border border-white/[0.1] hover:border-white/[0.2] transition-all duration-300">
               <LogIn size={13} /> Sign In
             </button>
             <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden ml-1 text-slate-400 hover:text-white transition-colors">
@@ -254,6 +258,10 @@ function Navbar({ onSignIn, onDemo, onTrack }) {
                 {l.label}
               </button>
             ))}
+            <button onClick={() => { setMobileOpen(false); onRegister(); }}
+              className="px-4 py-3 text-sm font-bold text-emerald-400 hover:text-emerald-300 text-left">
+              ✨ Register Your Mill
+            </button>
           </div>
         )}
       </div>
@@ -304,7 +312,7 @@ function ProcessBar() {
   );
 }
 
-function HeroSection({ onDemo, onSignIn, onTrack }) {
+function HeroSection({ onDemo, onRegister, onSignIn, onTrack }) {
   const [cardRef, cardVisible] = useScrollReveal(0.2);
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden pt-16" style={{ background: 'linear-gradient(170deg, #0A0F1E 0%, #0F172A 40%, #111827 100%)' }}>
@@ -333,18 +341,18 @@ function HeroSection({ onDemo, onSignIn, onTrack }) {
             </p>
 
             <div className="cinematic-fadeup stagger-4 flex flex-wrap gap-3 mt-1">
-              <button onClick={onDemo}
-                className="group inline-flex items-center gap-2.5 px-7 py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-2xl transition-all duration-500 hover:shadow-[0_0_50px_rgba(16,185,129,0.3)] hover:scale-[1.03] active:scale-[0.98]">
-                <Zap size={16} /> Launch Live Demo
+              <button onClick={onRegister}
+                className="group inline-flex items-center gap-2.5 px-7 py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-2xl transition-all duration-500 hover:shadow-[0_0_50px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[0.98]">
+                <Sparkles size={16} /> Register Your Mill — Free Trial
                 <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
               </button>
-              <button onClick={onSignIn}
-                className="inline-flex items-center gap-2 px-6 py-4 bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-bold rounded-2xl border border-white/[0.1] hover:border-white/[0.2] backdrop-blur-sm transition-all duration-500">
-                <LogIn size={15} /> Staff & Operator Login
+              <button onClick={onDemo}
+                className="inline-flex items-center gap-2 px-6 py-4 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-2xl border border-white/[0.1] hover:border-white/[0.2] transition-all duration-500">
+                <Zap size={15} /> Launch 1-Click Demo
               </button>
-              <button onClick={onTrack}
-                className="inline-flex items-center gap-2 px-5 py-4 text-slate-400 hover:text-emerald-300 text-sm font-semibold transition-all duration-300 hover:bg-white/[0.04] rounded-2xl">
-                <Package size={15} /> Track Lot
+              <button onClick={onSignIn}
+                className="inline-flex items-center gap-2 px-5 py-4 text-slate-300 hover:text-white text-sm font-semibold transition-all duration-300 hover:bg-white/[0.04] rounded-2xl">
+                <LogIn size={15} /> Staff Sign In
               </button>
             </div>
 
@@ -788,7 +796,7 @@ function ComparisonTable() {
 /* ═══════════════════════════════════════════════════════════════
    FINAL CTA
    ═══════════════════════════════════════════════════════════════ */
-function FinalCTA({ onDemo, onSignIn }) {
+function FinalCTA({ onDemo, onRegister, onSignIn }) {
   const [ref, visible] = useScrollReveal(0.2);
   return (
     <section ref={ref} className="relative py-24 lg:py-32 overflow-hidden" style={{ background: 'linear-gradient(170deg, #0A0F1E 0%, #0F172A 50%, #111827 100%)' }}>
@@ -802,17 +810,21 @@ function FinalCTA({ onDemo, onSignIn }) {
           Join 47 process mills already running zero-defect operations across Surat, Tirupur, and Ahmedabad clusters.
         </p>
         <div className="flex flex-wrap justify-center gap-4 mb-6">
-          <button onClick={onDemo}
+          <button onClick={onRegister}
             className="group inline-flex items-center gap-2.5 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-2xl transition-all duration-500 hover:shadow-[0_0_60px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[0.98]">
-            <Zap size={16} /> Launch Interactive Demo
+            <Sparkles size={16} /> Register Your Mill — Free 30-Day Trial
             <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
           </button>
+          <button onClick={onDemo}
+            className="inline-flex items-center gap-2 px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-2xl border border-white/[0.1] hover:border-white/[0.2] backdrop-blur-sm transition-all duration-500">
+            <Zap size={15} /> Launch Live Demo
+          </button>
           <button onClick={onSignIn}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-bold rounded-2xl border border-white/[0.1] hover:border-white/[0.2] backdrop-blur-sm transition-all duration-500">
-            <LogIn size={15} /> Sign In to Your Mill
+            className="inline-flex items-center gap-2 px-6 py-4 text-slate-400 hover:text-white text-sm font-semibold transition-all duration-300 hover:bg-white/[0.04] rounded-2xl">
+            <LogIn size={15} /> Staff Sign In
           </button>
         </div>
-        <p className="text-slate-600 text-xs">Free demo • No credit card • Setup in 15 minutes</p>
+        <p className="text-slate-600 text-xs">Free 30-day production trial • Dedicated isolated database • Setup in 2 minutes</p>
       </div>
     </section>
   );
@@ -937,22 +949,22 @@ function TrackingModal({ isOpen, onClose }) {
 /* ═══════════════════════════════════════════════════════════════
    MAIN EXPORT
    ═══════════════════════════════════════════════════════════════ */
-export default function LandingPage({ onSignIn, onDemo }) {
+export default function LandingPage({ onSignIn, onRegister, onDemo }) {
   const [trackOpen, setTrackOpen] = useState(false);
 
   useEffect(() => { injectCSS(); }, []);
 
   return (
     <div className="min-h-screen bg-[#060A14] font-sans">
-      <Navbar onSignIn={onSignIn} onDemo={onDemo} onTrack={() => setTrackOpen(true)} />
-      <HeroSection onDemo={onDemo} onSignIn={onSignIn} onTrack={() => setTrackOpen(true)} />
+      <Navbar onSignIn={onSignIn} onRegister={onRegister} onDemo={onDemo} onTrack={() => setTrackOpen(true)} />
+      <HeroSection onDemo={onDemo} onRegister={onRegister} onSignIn={onSignIn} onTrack={() => setTrackOpen(true)} />
       <Marquee />
       <BentoModules />
       <WorkflowTimeline />
       <AICopilotSection />
       <TraderPortal />
       <ComparisonTable />
-      <FinalCTA onDemo={onDemo} onSignIn={onSignIn} />
+      <FinalCTA onDemo={onDemo} onRegister={onRegister} onSignIn={onSignIn} />
       <Footer />
       <TrackingModal isOpen={trackOpen} onClose={() => setTrackOpen(false)} />
     </div>

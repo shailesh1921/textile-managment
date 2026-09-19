@@ -48,6 +48,7 @@ app.get('/api/debug-db', async (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/settings', authRoutes);
 app.use('/api/v1', masterRoutes);
 app.use('/api/v1', jobRoutes);
 app.use('/api/v1/production', prodRoutes);

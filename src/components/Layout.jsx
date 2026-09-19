@@ -41,6 +41,7 @@ export const Layout = ({ activeTab, setActiveTab, children }) => {
     { id: 'sales', name: t('nav_sales'), icon: TrendingUp },
     { id: 'finance', name: t('nav_finance'), icon: FileBarChart },
     { id: 'reports', name: t('nav_reports'), icon: FileBarChart },
+    { id: 'settings', name: 'Mill Settings', icon: Settings, highlight: false },
   ];
 
   const handleSwitchRole = (role) => {
