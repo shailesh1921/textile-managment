@@ -254,9 +254,16 @@ export const AIVisionQC = () => {
 
                 {/* Root Cause & Corrective Action */}
                 <div className="p-4 bg-purple-50/60 rounded-xl border border-purple-100 space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900">
-                    <Sparkles size={14} className="text-purple-600" />
-                    <span>AI Root-Cause Diagnosis</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900">
+                      <Sparkles size={14} className="text-purple-600" />
+                      <span>ASTM D5430 Diagnosis</span>
+                    </div>
+                    {analysisResult.nvidia_nim_insights && (
+                      <span className="text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                        NVIDIA NIM Active
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-700 leading-relaxed">
                     <strong>Cause:</strong> {analysisResult.root_cause_analysis.cause}
@@ -264,6 +271,18 @@ export const AIVisionQC = () => {
                   <p className="text-xs text-purple-800 leading-relaxed pt-1 border-t border-purple-200/60">
                     <strong>Corrective Action:</strong> {analysisResult.root_cause_analysis.corrective_action}
                   </p>
+                  
+                  {/* NVIDIA NIM Chemical / Prevention Insights */}
+                  {analysisResult.nvidia_nim_insights && typeof analysisResult.nvidia_nim_insights === 'object' && (
+                    <div className="pt-2 mt-2 border-t border-purple-200 text-[11px] text-slate-600 space-y-1 bg-white/70 p-2.5 rounded-lg">
+                      {analysisResult.nvidia_nim_insights.recommended_chemical_fix && (
+                        <p><strong className="text-emerald-700">🧪 Chemical Fix:</strong> {analysisResult.nvidia_nim_insights.recommended_chemical_fix}</p>
+                      )}
+                      {analysisResult.nvidia_nim_insights.mill_prevention_tip && (
+                        <p><strong className="text-purple-700">🛡️ Prevention Tip:</strong> {analysisResult.nvidia_nim_insights.mill_prevention_tip}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Save Inspection Action */}

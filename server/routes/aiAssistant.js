@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticateToken } = require('../middleware');
+const { queryNvidiaTextileCopilot } = require('../utils/nvidiaNIM');
 
 const router = express.Router();
 
@@ -497,6 +498,18 @@ router.post('/voice-query', async (req, res) => {
     // Level 4: Multilingual Voice & UI Synthesis
     const { voiceText, voiceResponses, displayCard } = synthesizeResponse(intent, entities, data, targetLang);
 
+    // Level 5: Live NVIDIA NIM Enhancement (z-ai/glm-5.3-flash)
+    let aiEnhancedSummary = null;
+    try {
+      aiEnhancedSummary = await queryNvidiaTextileCopilot({
+        userQuery: query,
+        language: targetLang,
+        floorContext: { intent, entities, dataCount: Array.isArray(data) ? data.length : 1 }
+      });
+    } catch (nimErr) {
+      console.warn('NVIDIA NIM voice enhancement skipped:', nimErr.message);
+    }
+
     // Level 6: Return standard response contract
     res.json({
       success: true,
@@ -506,7 +519,8 @@ router.post('/voice-query', async (req, res) => {
       intent,
       entities,
       sql_executed: sql,
-      voice_text: voiceText,
+      voice_text: aiEnhancedSummary || voiceText,
+      nim_ai_answer: aiEnhancedSummary,
       voice_responses: voiceResponses,
       display_card: displayCard,
       quick_followups: [

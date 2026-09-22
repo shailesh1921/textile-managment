@@ -1,5 +1,6 @@
 const express = require('express');
 const { pool } = require('../db');
+const { analyzeDefectWithNvidia } = require('../utils/nvidiaNIM');
 
 const router = express.Router();
 const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -96,6 +97,19 @@ router.post('/analyze-fabric-image', async (req, res) => {
 
   const defectInfo = DEFECT_TAXONOMY[defect_type] || DEFECT_TAXONOMY.OIL_STAIN;
 
+  // Optional: Call NVIDIA NIM (z-ai/glm-5.3-flash) for deep chemical and operational root-cause
+  let nvidiaInsights = null;
+  try {
+    nvidiaInsights = await analyzeDefectWithNvidia({
+      defectType: defectInfo.name,
+      defectSizeInches: size,
+      fabricWidthInches: fabric_width_inches || 44,
+      metersInspected: meters_inspected
+    });
+  } catch (nimErr) {
+    console.warn('NVIDIA NIM defect analysis skipped:', nimErr.message);
+  }
+
   // Optional: Save inspection to database if lot_id provided
   let inspectionRecordId = null;
   if (lot_id) {
@@ -143,6 +157,7 @@ router.post('/analyze-fabric-image', async (req, res) => {
       cause: defectInfo.root_cause,
       corrective_action: defectInfo.corrective_action
     },
+    nvidia_nim_insights: nvidiaInsights,
     visual_bounding_box: {
       x: 32,
       y: 28,
