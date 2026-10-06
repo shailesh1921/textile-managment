@@ -1,73 +1,80 @@
-# Textile ERP - Enterprise Resource Planning
+# 🏭 Textile Production & Dyeing Management System (Surat Textile ERP)
 
-A modern, high-fidelity Enterprise Resource Planning (ERP) suite designed specifically for textile trading and manufacturing. Replicated from the Python target repository but built on a cutting-edge JavaScript web ecosystem.
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Render_Deployment-success?style=for-the-badge&logo=render)](https://textile-managment.onrender.com/production)
+[![Tech Stack](https://img.shields.io/badge/Stack-MERN_%2B_MySQL_%2B_Neon-blue?style=for-the-badge&logo=react)](https://github.com/shailesh1921/textile-managment)
+[![License](https://img.shields.io/badge/Deployment-Production_Client-orange?style=for-the-badge)](https://textile-managment.onrender.com/production)
+
+> An end-to-end, multi-tier Enterprise Resource Planning (ERP) platform architected for a live Surat textile manufacturing and dyeing mill. Replaced legacy manual paper ledgers with automated production tracking, chemical inventory monitoring, cost engines, and multi-channel order dispatch pipelines.
+
+---
+
+## 🌟 Live Demo & Architecture
+
+- **Live URL**: [https://textile-managment.onrender.com/production](https://textile-managment.onrender.com/production)
+- **Target Industry**: Textile Manufacturing, Dyeing & Weaving Mills (Surat, Gujarat)
+
+---
+
+## 🚀 Key Modules & Engineering Features
+
+### 1. ⚙️ Automated Production Workflow Engine
+- **Multi-Status Pipeline**: Real-time order lifecycle tracking across stages: `Pending` ➔ `In Process` ➔ `Completed` ➔ `Dispatched` ➔ `Delivered`.
+- **Machine & Loom Allocation**: Tracks active machine runtimes, yarn lots, and job cards across shifts to optimize shop-floor throughput.
+
+### 2. 🧪 Chemical & Dye Inventory Tracking with Low-Stock Triggers
+- Real-time stock deduction based on fabric weight and recipe ratios.
+- Automated low-stock threshold alerts to prevent dye depletion during running dyeing shifts.
+
+### 3. 💰 Accurate Production Cost Calculation Engine
+- Multi-variable cost engine dynamically computing unit cost per meter:
+  $$\text{Unit Cost} = \text{Raw Yarn} + \text{Dyes/Chemicals} + \text{Direct Labor} + \text{Power/Electricity}$$
+- Generates GST-compliant invoice summaries with automated CGST/SGST ledger breakdowns.
+
+### 4. 📲 Automated WhatsApp Dispatch & Payment Alerts
+- Integrated transactional notifications (via Twilio WhatsApp Gateway) triggered automatically when lots are dispatched or payment balances are overdue.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React (Vite) + Tailwind CSS + Lucide Icons (Twilio console white/light theme)
-- **Backend**: Node.js + Express
-- **Database**: Cloud Neon PostgreSQL
-- **Alerts Gateway**: Twilio WhatsApp API (with Simulation Fallback mode)
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | React 18 (Vite), Tailwind CSS, Framer Motion, Lucide Icons |
+| **Backend** | Node.js, Express.js (REST API Architecture, 20+ Endpoints) |
+| **Database** | Normalized MySQL / Cloud Neon PostgreSQL |
+| **Authentication** | Role-Based Access Control (Admin, Mill Manager, Floor Operator) |
+| **DevOps & Hosting** | Render, CI/CD Pipeline, Environment-isolated secrets |
 
 ---
 
-## 🚀 Getting Started (Local Development)
+## 💻 Local Setup & Development
 
-### 1. Configure Environment Credentials
-Create a `.env` file in the root folder with the following variables:
-```env
-PORT=5005
-DATABASE_URL=postgresql://neondb_owner:npg_Ug2vJoAZfs1K@ep-summer-term-atmd3fge.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require
-
-# Twilio Credentials (Optional - Falls back to Simulation if empty)
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
-```
-
-### 2. Install Dependencies
-Install all backend and frontend packages:
 ```bash
+# 1. Clone the repository
+git clone https://github.com/shailesh1921/textile-managment.git
+cd textile-managment
+
+# 2. Install dependencies
 npm install
-```
 
-### 3. Initialize Cloud Neon Database Tables
-Run the database migrations and seeding script to deploy all 26 tables and seed default mock profiles directly onto your Neon database:
-```bash
+# 3. Configure environment variables
+# Create a .env file with your PORT, DATABASE_URL, and TWILIO credentials
+cp .env.example .env
+
+# 4. Initialize database schema
 npm run db:init
-```
 
-### 4. Launch Development Environment
-Start both the Express backend server (port 5005) and the Vite frontend (port 5174) concurrently:
-```bash
+# 5. Start the development server
 npm run dev
 ```
-Open **[http://localhost:5174](http://localhost:5174)** in your web browser.
 
 ---
 
-## 🔐 Credentials for Testing
+## 👤 Author
 
-Use the following default accounts to log in and test role-based access:
-- **Admin Administrator**:
-  - Username: `admin`
-  - Password: `admin123`
-- **Manager Operations**:
-  - Username: `manager1`
-  - Password: `manager123`
-- **Machine Operator**:
-  - Username: `operator1`
-  - Password: `operator123`
-
----
-
-## 📲 Automated WhatsApp Notification System
-
-The ERP includes automatic transactional alerts for customers:
-1. **Order Placed**: Sent when a new Sales Order is submitted.
-2. **Order Confirmed**: Triggered when the order status changes to `confirmed`.
-3. **Yield Started**: Triggered when loom work order changes to `in_progress`.
-4. **Order Dispatched**: Fired when dispatched status is updated.
-5. **Overdue payment reminders**: Calculate outstanding balances + CGST/SGST + 1% overdue interest automatically and log message dispatch to Neon database.
+**Shailesh Singh**  
+Final-Year B.Tech IT, P.P. Savani University, Surat  
+- **Portfolio**: [shaileshsingh1.netlify.app](https://shaileshsingh1.netlify.app)  
+- **GitHub**: [@shailesh1921](https://github.com/shailesh1921)  
+- **LinkedIn**: [linkedin.com/in/shailesh-singh](https://linkedin.com/in/shailesh-singh)  
+- **Email**: singh44shailesh@gmail.com
